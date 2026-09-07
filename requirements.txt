@@ -2,4 +2,5 @@ fastapi
 uvicorn
 joblib
 scikit-learn
-numpylightgbm
+numpy
+lightgbm
