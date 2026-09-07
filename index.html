@@ -1,0 +1,2447 @@
+<!DOCTYPE html>
+<html lang="en" class="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wafer Yield AI Spectrum | Semiconductor 3D Yield Prediction</title>
+  <meta name="description" content="3D interactive semiconductor wafer yield prediction system comparing Model A (XGBoost Ensemble) and Model B (1D-CNN) with real-time laser scan sweep and sub-die signal analytics." />
+  <meta property="og:title" content="Wafer Yield AI Spectrum | Semiconductor 3D Yield Prediction" />
+  <meta property="og:description" content="3D interactive semiconductor wafer yield prediction system comparing Model A (XGBoost Ensemble) and Model B (1D-CNN) with real-time laser scan sweep and sub-die signal analytics." />
+  <meta property="og:type" content="website" />
+
+  <!-- Fonts: Inter and JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['"JetBrains Mono"', 'monospace']
+          },
+          colors: {
+            brand: {
+              cyan: '#00f3ff',
+              magenta: '#ff0055',
+              blue: '#2563eb',
+              emerald: '#10b981',
+              amber: '#f59e0b',
+              crimson: '#ef4444'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- FontAwesome Icons CDN -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
+
+  <!-- Three.js CDN (r128) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- OrbitControls CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <!-- Chart.js CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <style>
+    /* Base Glassmorphism & Smooth Transitions */
+    :root {
+      --bg-gradient: radial-gradient(circle at 50% 10%, #ffffff 0%, #f8fafc 60%, #e2e8f0 100%);
+      --glass-panel: rgba(255, 255, 255, 0.82);
+      --glass-border: rgba(226, 232, 240, 0.85);
+      --glass-card: rgba(255, 255, 255, 0.9);
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --dot-color: rgba(100, 116, 139, 0.12);
+      --shadow-soft: 0 10px 30px -5px rgba(0, 0, 0, 0.06), 0 4px 12px -2px rgba(0, 0, 0, 0.03);
+    }
+
+    html.dark {
+      --bg-gradient: radial-gradient(circle at 50% 15%, #0f172a 0%, #080d1a 55%, #02050e 100%);
+      --glass-panel: rgba(15, 23, 42, 0.82);
+      --glass-border: rgba(255, 255, 255, 0.12);
+      --glass-card: rgba(30, 41, 59, 0.65);
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+      --dot-color: rgba(255, 255, 255, 0.1);
+      --shadow-soft: 0 16px 40px rgba(0, 0, 0, 0.5), 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+
+    body {
+      background: var(--bg-gradient);
+      color: var(--text-main);
+      font-family: 'Inter', sans-serif;
+      transition: background 0.3s ease, color 0.3s ease;
+      user-select: none;
+      overflow-x: hidden;
+    }
+
+    .frost-glass {
+      background: var(--glass-panel);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--shadow-soft);
+      border-radius: 16px;
+    }
+
+    .frost-card {
+      background: var(--glass-card);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border);
+      box-shadow: var(--shadow-soft);
+      border-radius: 16px;
+    }
+
+    .frost-btn {
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(12px);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    .frost-btn:hover {
+      filter: brightness(1.08);
+      transform: translateY(-1px);
+    }
+
+    .dot-grid-bg {
+      background-image: radial-gradient(var(--dot-color) 1.2px, transparent 1.2px);
+      background-size: 24px 24px;
+    }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.04);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: rgba(148, 163, 184, 0.4);
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: rgba(148, 163, 184, 0.7);
+    }
+
+    /* Laser Sweep Indicator Overlay Animation */
+    @keyframes laser-glow {
+      0%, 100% { opacity: 0.8; box-shadow: 0 0 15px rgba(0, 243, 255, 0.6); }
+      50% { opacity: 1; box-shadow: 0 0 25px rgba(0, 243, 255, 0.9); }
+    }
+    .laser-active {
+      animation: laser-glow 1.2s infinite;
+    }
+  </style>
+</head>
+<body class="h-screen w-screen flex flex-col p-2.5 sm:p-3.5 gap-2.5 sm:gap-3.5 font-sans overflow-hidden">
+
+  <!-- TOP BAR: App Title, Model Selector Dropdown, Scan Trigger, Dark/Light Mode Toggle -->
+  <header class="h-16 frost-glass flex items-center justify-between px-4 sm:px-6 flex-shrink-0 z-20">
+    <!-- Left: App Identity -->
+    <div class="flex items-center gap-3">
+      <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-cyan-400 flex items-center justify-center text-white shadow-md shadow-cyan-500/20">
+        <i class="fa-solid fa-microchip text-lg"></i>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <h1 class="text-sm sm:text-base font-extrabold tracking-tight font-mono text-slate-900 dark:text-white">
+            Wafer Yield AI Spectrum
+          </h1>
+          <span id="header-lot-badge" class="hidden md:inline px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-blue-500/15 text-blue-600 dark:text-cyan-400 border border-blue-400/30">
+            300mm FAB • LOT #DEFAULT
+          </span>
+        </div>
+        <p class="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+          Comparative Yield Analysis • XGBoost Ensemble vs. 1D-CNN
+        </p>
+      </div>
+    </div>
+
+    <!-- Center: Sleek Controls Group (New Lot, Model Dropdown & Primary Scan Trigger) -->
+    <div class="flex items-center gap-2 sm:gap-3">
+      <!-- Hidden File Input for New Lot Upload -->
+      <input type="file" id="lot-file-input" accept=".json" multiple class="hidden">
+
+      <!-- Compact "New Lot" Upload Button -->
+      <button id="btn-new-lot" class="bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs px-3 py-2 rounded-xl flex items-center gap-1.5 font-mono font-bold transition shadow-sm" title="Upload New Wafer Lot Prediction JSON">
+        <i class="fa-solid fa-plus text-cyan-400 text-xs"></i>
+        <span>New Lot</span>
+      </button>
+
+      <!-- Model Selector Dropdown -->
+      <div class="flex items-center gap-1.5 bg-slate-100/90 dark:bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-800 shadow-sm font-mono text-xs">
+        <label for="model-select" class="text-[10px] font-bold text-slate-400 uppercase tracking-wider hidden sm:inline">Model:</label>
+        <select id="model-select" class="bg-transparent font-bold text-slate-800 dark:text-slate-100 outline-none cursor-pointer pr-1">
+          <option value="model_a" class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Model A (XGBoost Ensemble)</option>
+          <option value="model_b" selected class="bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100">Model B (1D-CNN)</option>
+        </select>
+      </div>
+
+      <!-- Primary "Perform Wafer Scan" Button -->
+      <button id="btn-perform-scan" class="py-2 px-4 bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-500 hover:brightness-110 text-white rounded-xl font-bold font-mono text-xs tracking-wider uppercase flex items-center gap-2 shadow-lg shadow-blue-500/25 border border-cyan-300/40 transition-all laser-active">
+        <i id="scan-icon" class="fa-solid fa-bolt-lightning text-amber-300 animate-pulse"></i>
+        <span id="scan-btn-text">Perform Wafer Scan</span>
+      </button>
+    </div>
+
+    <!-- Right: Status Badge & Dark/Light Mode Toggle Switch -->
+    <div class="flex items-center gap-2 sm:gap-3">
+      <!-- Scan State Badge -->
+      <div id="scan-status-pill" class="hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-400/40">
+        <span class="w-2 h-2 rounded-full bg-amber-500 animate-ping"></span>
+        <span id="scan-status-text">PRE-SCAN (READY)</span>
+      </div>
+
+      <!-- Theme Switcher Button -->
+      <button id="theme-toggle-btn" class="w-10 h-10 rounded-xl frost-btn flex items-center justify-center text-slate-700 dark:text-amber-300 shadow-sm transition" title="Toggle Dark/Light Mode">
+        <i id="theme-icon" class="fa-solid fa-moon text-sm"></i>
+      </button>
+    </div>
+  </header>
+
+  <!-- MAIN SECTION: 3D Wafer Viewport, 3 KPI Glass Cards & Die Detail Side Drawer -->
+  <main class="flex-1 flex flex-col lg:flex-row gap-2.5 sm:gap-3.5 overflow-hidden relative">
+
+    <!-- 3D WAFER VIEWPORT (CENTRAL CANVAS) -->
+    <section id="wafer-viewport-container" class="flex-1 frost-glass relative flex flex-col overflow-hidden">
+      <!-- Subtle dot grid overlay -->
+      <div class="absolute inset-0 pointer-events-none dot-grid-bg opacity-40 dark:opacity-20"></div>
+
+      <!-- Three.js Canvas Container -->
+      <div id="three-canvas-container" class="w-full h-full cursor-grab active:cursor-grabbing outline-none relative" style="min-height: 380px;"></div>
+
+      <!-- Top-Left HUD: Topology & SEMI Specs -->
+      <div class="absolute top-3.5 left-3.5 z-10 flex flex-col space-y-1 font-mono pointer-events-none">
+        <div class="frost-card p-3 rounded-2xl text-xs border border-slate-200/80 dark:border-white/10 shadow-md">
+          <div class="text-[9px] text-blue-600 dark:text-cyan-400 uppercase font-black tracking-widest mb-1 flex items-center justify-between gap-1.5">
+            <span class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span> SEMI-M1 300mm SPEC</span>
+            <span id="hud-lot-badge" class="px-1.5 py-0.5 rounded bg-cyan-500/20 text-[9px] text-cyan-600 dark:text-cyan-300 font-mono font-bold">LOT #DEFAULT</span>
+          </div>
+          <div class="text-xs font-bold text-slate-800 dark:text-slate-100 font-mono">
+            TOTAL DIES: <span id="hud-die-count" class="text-blue-600 dark:text-cyan-300 font-extrabold">593</span>
+          </div>
+          <div class="flex items-center gap-2 mt-1 text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+            <span>NOTCH: <strong class="text-amber-500">SOUTH [0°]</strong></span>
+            <span>•</span>
+            <span>GRID: <strong class="text-emerald-500">CARTESIAN</strong></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Top-Right HUD: 3D Camera Controls -->
+      <div class="absolute top-3.5 right-3.5 z-10 flex items-center gap-1.5 font-mono">
+        <div id="hud-camera-view-mode" class="hidden sm:flex items-center px-2.5 py-1.5 rounded-xl bg-slate-100/90 dark:bg-slate-900/90 text-[10px] text-blue-600 dark:text-cyan-400 font-bold border border-slate-200 dark:border-white/10 shadow-sm mr-1">
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400 animate-pulse mr-1.5"></span>
+          <span id="hud-view-label">3D ISOMETRIC</span>
+        </div>
+        <button id="cam-view-2d" class="px-3 py-1.5 rounded-xl frost-btn text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm flex items-center gap-1.5 transition-all">
+          <i class="fa-solid fa-bullseye text-[10px] text-blue-600 dark:text-cyan-400"></i>
+          <span>2D TOP</span>
+        </button>
+        <button id="cam-view-3d" class="px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 border border-cyan-400/50 flex items-center gap-1.5 transition-all">
+          <i class="fa-solid fa-cube text-[10px] text-cyan-200"></i>
+          <span>3D ISO</span>
+        </button>
+        <button id="cam-reset-view" class="p-2 rounded-xl frost-btn text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm transition-all hover:rotate-180" title="Reset Camera">
+          <i class="fa-solid fa-arrows-rotate text-[10px] text-blue-600 dark:text-cyan-400"></i>
+        </button>
+      </div>
+
+      <!-- Bottom-Left HUD: Color Classification Palette Legend (Darker High-Contrast Colors) -->
+      <div class="absolute bottom-3.5 left-3.5 z-10 frost-card p-3 rounded-2xl text-xs font-mono shadow-md pointer-events-none">
+        <div class="text-[9px] uppercase tracking-wider text-slate-400 font-bold mb-1.5 flex items-center gap-1.5">
+          <span class="w-1.5 h-1.5 rounded-full bg-cyan-400"></span>
+          <span>Risk Classification Palette</span>
+        </div>
+        <div class="flex items-center gap-3 text-[11px]">
+          <div class="flex items-center gap-1.5">
+            <span class="w-3.5 h-3.5 rounded-md bg-[#15803d] border border-emerald-950/40 shadow-sm flex items-center justify-center text-[8px] text-white font-bold">P</span>
+            <span class="text-slate-800 dark:text-slate-100 font-bold">Pass (0.0-0.4)</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3.5 h-3.5 rounded-md bg-[#b45309] border border-amber-950/40 shadow-sm flex items-center justify-center text-[8px] text-white font-bold">W</span>
+            <span class="text-slate-800 dark:text-slate-100 font-bold">Warning (0.4-0.7)</span>
+          </div>
+          <div class="flex items-center gap-1.5">
+            <span class="w-3.5 h-3.5 rounded-md bg-[#991b1b] border border-red-950/60 shadow-sm flex items-center justify-center text-[8px] text-white font-bold">D</span>
+            <span class="text-slate-800 dark:text-slate-100 font-bold">Defect (&gt;0.7)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom-Center: Laser Scan Sweep Progress Bar Overlay -->
+      <div id="laser-sweep-hud" class="hidden absolute bottom-4 left-1/2 -translate-x-1/2 z-20 w-80 frost-card px-4 py-2.5 rounded-2xl border border-cyan-400/50 shadow-2xl font-mono text-xs">
+        <div class="flex items-center justify-between text-blue-600 dark:text-cyan-300 font-bold mb-1">
+          <div class="flex items-center gap-2">
+            <i class="fa-solid fa-circle-notch fa-spin text-cyan-400"></i>
+            <span>LASER SWEEP SCANNING...</span>
+          </div>
+          <span id="sweep-percent-val">0%</span>
+        </div>
+        <div class="w-full h-1.5 bg-slate-200 dark:bg-slate-800 rounded-full overflow-hidden">
+          <div id="sweep-progress-bar" class="h-full bg-gradient-to-r from-cyan-400 via-blue-500 to-indigo-600 w-0 transition-all duration-75"></div>
+        </div>
+        <div class="flex justify-between text-[9px] text-slate-500 dark:text-slate-400 mt-1 font-semibold">
+          <span>X-SWEEP VECTOR</span>
+          <span id="sweep-die-counter">0 / 593 DIES</span>
+        </div>
+      </div>
+
+      <!-- Bottom-Right: Interaction Guide -->
+      <div class="hidden md:flex absolute bottom-3.5 right-3.5 z-10 text-[10px] font-mono text-slate-500 dark:text-slate-400 frost-card px-3 py-1.5 rounded-xl pointer-events-none items-center space-x-3 shadow-sm">
+        <span><i class="fa-solid fa-arrow-pointer text-blue-600 dark:text-cyan-400 mr-1"></i> Click: Inspect Die</span>
+        <span><i class="fa-solid fa-arrows-up-down-left-right text-slate-400 mr-1"></i> Drag: Orbit</span>
+        <span><i class="fa-solid fa-magnifying-glass text-slate-400 mr-1"></i> Scroll: Zoom</span>
+      </div>
+
+      <!-- FLOATING DIE TOOLTIP -->
+      <div id="wafer-hover-tooltip" class="opacity-0 fixed z-30 pointer-events-none frost-card p-3 rounded-2xl text-xs font-mono shadow-2xl transition-opacity duration-150 transform -translate-x-1/2 -translate-y-full mb-3 w-56">
+        <div class="flex items-center justify-between pb-1 mb-1.5 border-b border-slate-200 dark:border-white/10">
+          <span id="tooltip-die-id" class="font-bold text-slate-900 dark:text-white">DIE #000</span>
+          <span id="tooltip-risk-badge" class="px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-600 dark:text-emerald-400">CLEAR</span>
+        </div>
+        <div class="space-y-1 text-[11px]">
+          <div class="flex justify-between text-slate-500 dark:text-slate-400">
+            <span>Coordinates:</span>
+            <span id="tooltip-coords" class="text-slate-800 dark:text-slate-200 font-bold">X:0, Y:0</span>
+          </div>
+          <div class="flex justify-between text-slate-500 dark:text-slate-400">
+            <span>Risk (fail_prob):</span>
+            <span id="tooltip-fail-prob" class="font-extrabold text-emerald-600 dark:text-emerald-400">0.0%</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- RIGHT COLUMN: 3 KPI GLASS CARDS & DIE DETAIL SIDE DRAWER -->
+    <aside class="w-full lg:w-[350px] xl:w-[390px] flex flex-col gap-2.5 sm:gap-3.5 shrink-0 overflow-y-auto select-none">
+
+      <!-- 3 KPI GLASS CARDS -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-2.5">
+
+        <!-- KPI 1: Flagged Defect Dies (fail_prob > 0.8) -->
+        <div class="frost-card p-4 rounded-2xl flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-rose-500"></span> FLAGGED DEFECT DIES
+            </span>
+            <span class="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-400/30">
+              p &gt; 0.80
+            </span>
+          </div>
+          <div class="flex items-baseline justify-between mt-1">
+            <span id="kpi-flagged-count" class="text-3xl font-black font-mono text-rose-500 tracking-tight">--</span>
+            <span id="kpi-flagged-delta" class="text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400">Awaiting scan</span>
+          </div>
+          <div class="text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-1.5 pt-1.5 border-t border-slate-100 dark:border-white/10 flex justify-between">
+            <span>Model A: <strong id="kpi-flagged-a" class="text-slate-700 dark:text-slate-300">--</strong></span>
+            <span>Model B: <strong id="kpi-flagged-b" class="text-slate-700 dark:text-slate-300">--</strong></span>
+          </div>
+        </div>
+
+        <!-- KPI 2: Yield Efficiency Estimate (%) -->
+        <div class="frost-card p-4 rounded-2xl flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-emerald-500"></span> YIELD EFFICIENCY ESTIMATE
+            </span>
+            <span id="kpi-yield-badge" class="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-400/30">
+              OPTIMAL
+            </span>
+          </div>
+          <div class="flex items-baseline justify-between mt-1">
+            <span id="kpi-yield-rate" class="text-3xl font-black font-mono text-emerald-500 tracking-tight">--</span>
+            <span id="kpi-yield-delta" class="text-[11px] font-mono font-bold text-emerald-600 dark:text-emerald-400">+11.4% Delta</span>
+          </div>
+          <div class="text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-1.5 pt-1.5 border-t border-slate-100 dark:border-white/10 flex justify-between">
+            <span>Baseline: <strong id="kpi-yield-baseline" class="text-slate-700 dark:text-slate-300">--</strong></span>
+            <span>Target: <strong class="text-emerald-500">&gt;88.0%</strong></span>
+          </div>
+        </div>
+
+        <!-- KPI 3: Model Confidence Variance -->
+        <div class="frost-card p-4 rounded-2xl flex flex-col justify-between">
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center gap-1.5">
+              <span class="w-2 h-2 rounded-full bg-indigo-500"></span> MODEL CONFIDENCE VARIANCE
+            </span>
+            <span id="kpi-variance-badge" class="px-2 py-0.5 rounded-full text-[9px] font-mono font-bold bg-indigo-500/15 text-indigo-600 dark:text-indigo-400 border border-indigo-400/30">
+              σ² SPREAD
+            </span>
+          </div>
+          <div class="flex items-baseline justify-between mt-1">
+            <span id="kpi-variance-val" class="text-3xl font-black font-mono text-indigo-500 dark:text-cyan-400 tracking-tight">--</span>
+            <span id="kpi-variance-eval" class="text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400">High Separation</span>
+          </div>
+          <div class="text-[10px] font-mono text-slate-500 dark:text-slate-400 mt-1.5 pt-1.5 border-t border-slate-100 dark:border-white/10 flex justify-between">
+            <span>Model A σ²: <strong id="kpi-var-a" class="text-slate-700 dark:text-slate-300">--</strong></span>
+            <span>Model B σ²: <strong id="kpi-var-b" class="text-slate-700 dark:text-slate-300">--</strong></span>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- DIE DETAIL SIDE DRAWER (INTERACTIVE INSPECTOR & 2,000-POINT SPARKLINE) -->
+      <div id="die-detail-drawer" class="frost-card p-4 rounded-2xl flex-1 flex flex-col justify-between border border-blue-400/20 shadow-xl">
+        <div>
+          <!-- Drawer Header -->
+          <div class="flex items-center justify-between pb-2 mb-2 border-b border-slate-200 dark:border-white/10">
+            <div class="flex items-center gap-2">
+              <div class="w-2 h-2 rounded-full bg-cyan-400 animate-ping"></div>
+              <span id="drawer-die-title" class="font-mono font-bold text-sm text-slate-900 dark:text-white">DIE #248 INSPECTION</span>
+            </div>
+            <span id="drawer-status-pill" class="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-600 dark:text-rose-400 border border-rose-400/30">
+              DEFECT RISK
+            </span>
+          </div>
+
+          <!-- Metadata Grid -->
+          <div class="grid grid-cols-2 gap-2 text-xs font-mono mb-3">
+            <div class="p-2 rounded-xl bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/5">
+              <div class="text-[9px] text-slate-400 uppercase font-bold">Spatial Coordinates</div>
+              <div id="drawer-coords" class="font-bold text-slate-900 dark:text-white text-sm mt-0.5">X:+4, Y:-7</div>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/5">
+              <div class="text-[9px] text-slate-400 uppercase font-bold">Active Risk Score</div>
+              <div id="drawer-risk-score" class="font-bold text-rose-500 text-sm mt-0.5">94.2%</div>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/5">
+              <div class="text-[9px] text-slate-400 uppercase font-bold">Ground Truth</div>
+              <div id="drawer-label" class="font-bold text-rose-600 dark:text-rose-400 text-sm mt-0.5">FAIL [1]</div>
+            </div>
+            <div class="p-2 rounded-xl bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/5">
+              <div class="text-[9px] text-slate-400 uppercase font-bold">Discrepancy (B - A)</div>
+              <div id="drawer-discrepancy" class="font-bold text-emerald-500 text-sm mt-0.5">+21.4%</div>
+            </div>
+          </div>
+
+          <!-- Model A vs Model B Direct Comparison Strip -->
+          <div class="p-2.5 rounded-xl bg-slate-100/70 dark:bg-slate-950/60 border border-slate-200 dark:border-white/10 text-xs font-mono mb-3">
+            <div class="text-[9px] text-slate-400 uppercase font-bold mb-1 flex items-center justify-between">
+              <span>Dual-Model Predictions</span>
+              <span id="drawer-comparison-summary" class="text-blue-500 font-bold">1D-CNN Confidence Lead</span>
+            </div>
+            <div class="flex items-center justify-between pt-1">
+              <div>
+                <span class="text-slate-500 text-[10px]">Model A (XGBoost):</span>
+                <span id="drawer-prob-a" class="font-bold text-blue-600 dark:text-cyan-400 ml-1">72.8%</span>
+              </div>
+              <div class="text-slate-400">vs</div>
+              <div>
+                <span class="text-slate-500 text-[10px]">Model B (1D-CNN):</span>
+                <span id="drawer-prob-b" class="font-bold text-rose-500 ml-1">94.2%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- Sub-Die Anomaly Detection Graph (2,000-Point Sensor Spectrum) -->
+          <div class="mt-1">
+            <div class="flex items-center justify-between text-xs font-mono mb-1.5">
+              <span class="text-[10px] font-bold text-slate-700 dark:text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+                <i class="fa-solid fa-chart-line text-cyan-500"></i> Anomaly Detection Graph
+              </span>
+              <!-- Toggle: Signal + Anomaly Bounds vs Anomaly Residuals -->
+              <div class="flex items-center rounded-lg bg-slate-200/90 dark:bg-slate-900/90 p-0.5 border border-slate-300/60 dark:border-white/10 text-[9px]">
+                <button id="btn-graph-mode-signal" class="px-2 py-0.5 rounded font-bold bg-blue-600 dark:bg-cyan-500 text-white shadow-sm transition">
+                  Signal &amp; ±2.5σ Bounds
+                </button>
+                <button id="btn-graph-mode-residual" class="px-2 py-0.5 rounded font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition">
+                  Residuals (z²)
+                </button>
+              </div>
+            </div>
+
+            <div class="w-full h-28 bg-slate-100/90 dark:bg-slate-950/90 rounded-xl p-2 border border-slate-200 dark:border-white/10 relative">
+              <canvas id="sparkline-canvas" class="w-full h-full"></canvas>
+            </div>
+
+            <!-- Anomaly Diagnostic Metric Pills -->
+            <div class="grid grid-cols-3 gap-1.5 mt-2 text-[10px] font-mono">
+              <div class="p-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/5 text-center">
+                <div class="text-[8px] text-slate-400 uppercase font-bold">Anomaly Status</div>
+                <div id="drawer-anomaly-status" class="font-extrabold text-rose-500 mt-0.5 text-[10px] truncate">ANOMALY DETECTED</div>
+              </div>
+              <div class="p-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/5 text-center">
+                <div class="text-[8px] text-slate-400 uppercase font-bold">Max Outlier</div>
+                <div id="drawer-anomaly-max" class="font-extrabold text-amber-500 mt-0.5 text-[10px]">+3.42σ</div>
+              </div>
+              <div class="p-1.5 rounded-lg bg-slate-100/80 dark:bg-slate-900/60 border border-slate-200/60 dark:border-white/5 text-center">
+                <div class="text-[8px] text-slate-400 uppercase font-bold">Anomaly Density</div>
+                <div id="drawer-anomaly-density" class="font-extrabold text-rose-500 mt-0.5 text-[10px]">18.5%</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-2 text-[10px] font-mono text-slate-400 text-center flex items-center justify-center gap-1.5">
+          <i class="fa-solid fa-crosshairs text-cyan-400"></i>
+          <span>Click any wafer die to inspect its full 2,000-point signal anomaly spectrum</span>
+        </div>
+      </div>
+
+    </aside>
+  </main>
+
+  <!-- BOTTOM DRAWER ("NEED MORE DATA?"): Collapsible Accordion with Searchable Table & Discrepancy Chart -->
+  <section class="frost-glass flex flex-col shrink-0 z-20 transition-all duration-300 overflow-hidden">
+    <!-- Accordion Toggle Header Bar -->
+    <button id="accordion-toggle-btn" class="w-full px-4 sm:px-6 py-3 flex items-center justify-between hover:bg-slate-50/50 dark:hover:bg-white/5 transition font-mono select-none outline-none">
+      <div class="flex items-center gap-3">
+        <div class="w-7 h-7 rounded-lg bg-blue-500/15 text-blue-600 dark:text-cyan-400 flex items-center justify-center font-bold text-xs border border-blue-400/30">
+          <i class="fa-solid fa-chart-line"></i>
+        </div>
+        <div class="text-left">
+          <div class="flex items-center gap-2">
+            <span class="text-xs sm:text-sm font-bold text-slate-900 dark:text-white">Need More Data?</span>
+            <span class="text-[10px] text-slate-400 font-normal hidden sm:inline">— Flagged Defect Dies &amp; Model Discrepancy Diagnostics</span>
+          </div>
+          <div class="text-[10px] text-slate-500 dark:text-slate-400 font-sans">
+            Searchable high-risk die catalog • Model A vs Model B prediction discrepancies (<code class="text-cyan-500 font-mono">fail_prob_B - fail_prob_A</code>)
+          </div>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-3">
+        <span id="accordion-count-badge" class="px-2.5 py-1 rounded-full text-[10px] font-mono font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-400/30">
+          42 FLAGGED DIES
+        </span>
+        <div class="w-8 h-8 rounded-lg frost-btn flex items-center justify-center text-slate-600 dark:text-slate-300">
+          <i id="accordion-chevron" class="fa-solid fa-chevron-up text-xs transition-transform duration-300"></i>
+        </div>
+      </div>
+    </button>
+
+    <!-- Collapsible Accordion Content Body -->
+    <div id="accordion-content" class="hidden px-4 sm:px-6 pb-4 pt-1 border-t border-slate-200 dark:border-white/10 max-h-[320px] overflow-y-auto">
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 mt-2">
+
+        <!-- Left 7 Cols: Searchable Table of Flagged High-Risk Dies -->
+        <div class="lg:col-span-7 flex flex-col gap-2">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-xs font-bold font-mono text-slate-700 dark:text-slate-200 uppercase tracking-wider flex items-center gap-1.5">
+              <i class="fa-solid fa-table-list text-cyan-500"></i> High-Risk Die Catalog (fail_prob &gt; 0.70)
+            </span>
+            <!-- Table Search Input -->
+            <div class="relative w-48 sm:w-60">
+              <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+              <input id="table-search-input" type="text" placeholder="Search die # or X, Y..." class="w-full pl-8 pr-3 py-1 rounded-xl bg-slate-100/90 dark:bg-slate-900/80 border border-slate-200 dark:border-white/10 font-mono text-xs text-slate-800 dark:text-slate-100 outline-none focus:border-cyan-400 transition" />
+            </div>
+          </div>
+
+          <div class="frost-card rounded-xl overflow-hidden border border-slate-200 dark:border-white/10 max-h-56 overflow-y-auto">
+            <table class="w-full text-left font-mono text-xs border-collapse">
+              <thead class="sticky top-0 bg-slate-100 dark:bg-slate-900 border-b border-slate-200 dark:border-white/10 text-[10px] text-slate-500 dark:text-slate-400 uppercase">
+                <tr>
+                  <th class="py-2 px-3">Die ID</th>
+                  <th class="py-2 px-2">Coords</th>
+                  <th class="py-2 px-2 text-center text-blue-600 dark:text-cyan-400">Model A</th>
+                  <th class="py-2 px-2 text-center text-rose-500">Model B</th>
+                  <th class="py-2 px-2 text-center">Truth</th>
+                  <th class="py-2 px-2 text-right">Discrepancy (Δ)</th>
+                  <th class="py-2 px-3 text-right">Action</th>
+                </tr>
+              </thead>
+              <tbody id="flagged-dies-tbody" class="divide-y divide-slate-100 dark:divide-white/5 text-[11px]">
+                <!-- Populated dynamically -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Right 5 Cols: Tabbed Wafer Anomaly Detection Graph & Discrepancy Distribution -->
+        <div class="lg:col-span-5 flex flex-col gap-2">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-1 rounded-xl bg-slate-200/90 dark:bg-slate-900/90 p-1 border border-slate-300/60 dark:border-white/10 font-mono text-[10px]">
+              <button id="tab-btn-wafer-anomaly" class="px-2.5 py-1 rounded-lg font-bold bg-blue-600 dark:bg-cyan-500 text-white shadow-sm flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-chart-area text-[10px]"></i>
+                <span>Anomaly Detection Graph</span>
+              </button>
+              <button id="tab-btn-discrepancy" class="px-2.5 py-1 rounded-lg font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1.5 transition">
+                <i class="fa-solid fa-scale-balanced text-[10px]"></i>
+                <span>Discrepancy (B - A)</span>
+              </button>
+            </div>
+            <span id="tab-chart-subtext" class="text-[10px] font-mono text-slate-500 dark:text-slate-400 hidden sm:inline">Radial Defect Profile (Center→Edge)</span>
+          </div>
+
+          <!-- Tab Content 1: Wafer Radial Anomaly Detection Graph -->
+          <div id="panel-wafer-anomaly" class="frost-card p-3 rounded-xl border border-slate-200 dark:border-white/10 h-56 flex flex-col justify-between">
+            <div class="w-full h-40 relative">
+              <canvas id="wafer-anomaly-chart-canvas"></canvas>
+            </div>
+            <div class="flex items-center justify-between text-[9px] font-mono text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200 dark:border-white/10">
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-600"></span> <strong class="text-rose-600 dark:text-rose-400">Critical Threshold (&gt;70%)</strong></span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-cyan-400"></span> <strong class="text-blue-600 dark:text-cyan-400">1D-CNN Anomaly Trace</strong></span>
+              <span class="flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-slate-400"></span> <strong>XGB Baseline</strong></span>
+            </div>
+          </div>
+
+          <!-- Tab Content 2: Discrepancy Distribution Chart (hidden by default) -->
+          <div id="panel-discrepancy" class="hidden frost-card p-3 rounded-xl border border-slate-200 dark:border-white/10 h-56 flex flex-col justify-between">
+            <div class="w-full h-40 relative">
+              <canvas id="discrepancy-chart-canvas"></canvas>
+            </div>
+            <div class="flex items-center justify-between text-[9px] font-mono text-slate-500 dark:text-slate-400 pt-1 border-t border-slate-200 dark:border-white/10">
+              <span><strong class="text-emerald-500">Negative Δ:</strong> False Scrap Eliminated</span>
+              <span><strong class="text-rose-500">Positive Δ:</strong> True Escapes Caught</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================== -->
+  <!-- JAVASCRIPT LOGIC ARCHITECTURE               -->
+  <!-- ========================================== -->
+  <script>
+    // ==========================================
+    // 1. APPLICATION STATE
+    // ==========================================
+    const AppState = {
+      theme: 'light',
+      selectedModel: 'model_b', // 'model_a' or 'model_b'
+      isScanned: false,
+      isScanning: false,
+      modelAData: [],
+      modelBData: [],
+      mergedDies: [], // array of { die_id, x, y, probA, probB, label, signal_2000, mesh }
+      selectedDieId: null,
+      hoveredDieId: null,
+      accordionOpen: false,
+      dieAnomalyGraphMode: 'signal', // 'signal' (bounds) or 'residual' (z-score squared)
+      bottomChartTab: 'anomaly', // 'anomaly' or 'discrepancy'
+      scene: null,
+      camera: null,
+      renderer: null,
+      controls: null,
+      waferMesh: null,
+      laserMesh: null,
+      sparklineChart: null,
+      waferAnomalyChart: null,
+      discrepancyChart: null,
+      raycaster: new THREE.Raycaster(),
+      mouse: new THREE.Vector2(-999, -999)
+    };
+
+    // ==========================================
+    // 2. THEME ENGINE (LIGHT MODE DEFAULT)
+    // ==========================================
+    function initTheme() {
+      const savedTheme = localStorage.getItem('wafer_spectrum_theme');
+      if (savedTheme === 'dark') {
+        setTheme('dark');
+      } else {
+        setTheme('light');
+      }
+
+      document.getElementById('theme-toggle-btn').addEventListener('click', () => {
+        const nextTheme = AppState.theme === 'light' ? 'dark' : 'light';
+        setTheme(nextTheme);
+      });
+    }
+
+    function setTheme(theme) {
+      AppState.theme = theme;
+      localStorage.setItem('wafer_spectrum_theme', theme);
+      const htmlEl = document.documentElement;
+      const themeIcon = document.getElementById('theme-icon');
+
+      if (theme === 'dark') {
+        htmlEl.classList.add('dark');
+        htmlEl.classList.remove('light');
+        themeIcon.className = 'fa-solid fa-sun text-sm text-amber-400';
+      } else {
+        htmlEl.classList.remove('dark');
+        htmlEl.classList.add('light');
+        themeIcon.className = 'fa-solid fa-moon text-sm text-slate-700';
+      }
+
+      // Update Three.js clear color and materials if initialized
+      if (AppState.renderer && AppState.scene) {
+        if (theme === 'dark') {
+          AppState.renderer.setClearColor(0x0f172a, 0);
+          if (AppState.waferMesh) {
+            AppState.waferMesh.material.color.setHex(0x1e293b);
+          }
+        } else {
+          AppState.renderer.setClearColor(0xf8fafc, 0);
+          if (AppState.waferMesh) {
+            AppState.waferMesh.material.color.setHex(0xffffff);
+          }
+        }
+
+        // If wafer is in pre-scan state, refresh die materials to match current theme
+        if (!AppState.isScanned && AppState.mergedDies) {
+          AppState.mergedDies.forEach(d => {
+            if (d.mesh && d.die_id !== AppState.selectedDieId) {
+              applyPreScanMaterial(d.mesh);
+            }
+          });
+        }
+      }
+
+      // Update Chart.js color schemes
+      if (AppState.sparklineChart) updateSparklineTheme();
+      if (AppState.waferAnomalyChart) renderWaferAnomalyChart();
+      if (AppState.discrepancyChart) updateDiscrepancyTheme();
+    }
+
+    // ==========================================
+    // 3. DATA INTEGRATION & AUTO-LOAD
+    // ==========================================
+    async function fetchJSON(fileName) {
+      const candidates = [
+        `./${encodeURI(fileName)}`,
+        `/${encodeURI(fileName)}`,
+        `./public/${encodeURI(fileName)}`,
+        `/public/${encodeURI(fileName)}`
+      ];
+      for (const p of candidates) {
+        try {
+          const res = await fetch(p);
+          if (res.ok) {
+            return await res.json();
+          }
+        } catch (e) {
+          // try next path
+        }
+      }
+      throw new Error(`Failed to load dataset: ${fileName}`);
+    }
+
+    async function loadDatasets() {
+      try {
+        const [dataA, dataB] = await Promise.all([
+          fetchJSON('wafer_predictions(model A).json'),
+          fetchJSON('wafer_predictions(model B).json')
+        ]);
+
+        AppState.modelAData = dataA;
+        AppState.modelBData = dataB;
+      } catch (err) {
+        console.error('Critical dataset loading error:', err);
+        const hudEl = document.getElementById('hud-die-count');
+        if (hudEl) hudEl.textContent = 'ERR';
+        return;
+      }
+
+      // Merge into unified die structures
+      mergeDatasets();
+
+      // Update HUD count
+      document.getElementById('hud-die-count').textContent = AppState.mergedDies.length;
+
+      // Build 3D Wafer
+      buildThreeWafer();
+
+      // Pre-select first high-risk die or die #1 for drawer
+      const defaultDie = AppState.mergedDies.find(d => d.fail_prob_B > 0.8) || AppState.mergedDies[0];
+      if (defaultDie) {
+        inspectDie(defaultDie.die_id, false);
+      }
+
+      // Populate flagged dies table, wafer anomaly chart, discrepancy chart & KPIs
+      renderFlaggedDiesTable();
+      renderWaferAnomalyChart();
+      renderDiscrepancyChart();
+      updateKPICards();
+    }
+
+    function mergeDatasets() {
+      // Map Model B by die_id and spatial (x, y) coordinates
+      const mapBById = new Map();
+      const mapBByCoord = new Map();
+
+      AppState.modelBData.forEach(d => {
+        if (d.die_id !== undefined) mapBById.set(d.die_id, d);
+        mapBByCoord.set(`${d.x},${d.y}`, d);
+      });
+
+      AppState.mergedDies = AppState.modelAData.map(dieA => {
+        const dieB = (dieA.die_id !== undefined ? mapBById.get(dieA.die_id) : null) ||
+                     mapBByCoord.get(`${dieA.x},${dieA.y}`) ||
+                     dieA;
+
+        const fail_prob_A = Number(dieA.fail_prob !== undefined ? dieA.fail_prob : 0);
+        const fail_prob_B = Number(dieB.fail_prob !== undefined ? dieB.fail_prob : 0);
+
+        return {
+          die_id: dieA.die_id !== undefined ? dieA.die_id : dieB.die_id,
+          x: dieA.x !== undefined ? dieA.x : dieB.x,
+          y: dieA.y !== undefined ? dieA.y : dieB.y,
+          fail_prob_A: fail_prob_A,
+          fail_prob_B: fail_prob_B,
+          probA: fail_prob_A, // alias
+          probB: fail_prob_B, // alias
+          label: dieB.label !== undefined ? dieB.label : (dieA.label !== undefined ? dieA.label : 0),
+          signal_2000: (dieB.signal_2000 && dieB.signal_2000.length) ? dieB.signal_2000 : (dieA.signal_2000 || []),
+          mesh: null
+        };
+      });
+    }
+
+    // ==========================================
+    // 4. THREE.JS 3D WAFER CANVAS WITH GLASSMORPHISM
+    // ==========================================
+    function initThreeScene() {
+      const container = document.getElementById('three-canvas-container');
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+
+      // Scene
+      AppState.scene = new THREE.Scene();
+
+      // Camera
+      AppState.camera = new THREE.PerspectiveCamera(42, width / height, 0.1, 1000);
+      setCameraIsometric();
+
+      // Renderer with alpha transparency and antialiasing
+      AppState.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
+      AppState.renderer.setSize(width, height);
+      AppState.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      AppState.renderer.shadowMap.enabled = true;
+      AppState.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      container.appendChild(AppState.renderer.domElement);
+
+      // OrbitControls
+      AppState.controls = new THREE.OrbitControls(AppState.camera, AppState.renderer.domElement);
+      AppState.controls.enableDamping = true;
+      AppState.controls.dampingFactor = 0.06;
+      AppState.controls.maxPolarAngle = Math.PI / 2 + 0.05; // avoid going under floor
+      AppState.controls.minDistance = 12;
+      AppState.controls.maxDistance = 75;
+
+      // Lights (Key Light, Fill Light, Rim Light for Glass Caustics)
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.9);
+      AppState.scene.add(ambientLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffffff, 1.2);
+      dirLight.position.set(20, 35, 25);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 1024;
+      dirLight.shadow.mapSize.height = 1024;
+      AppState.scene.add(dirLight);
+
+      const rimLight = new THREE.PointLight(0x00f3ff, 1.5, 80);
+      rimLight.position.set(-25, 15, -20);
+      AppState.scene.add(rimLight);
+
+      // Resize Listener
+      window.addEventListener('resize', onWindowResize);
+
+      // Raycaster mouse listeners
+      container.addEventListener('mousemove', onCanvasMouseMove);
+      container.addEventListener('click', onCanvasClick);
+      container.addEventListener('mouseleave', () => {
+        container.style.cursor = 'grab';
+        const tooltip = document.getElementById('wafer-hover-tooltip');
+        if (tooltip) tooltip.style.opacity = '0';
+        if (AppState.hoveredDieId !== null) {
+          if (!AppState.isScanned && AppState.hoveredDieId !== AppState.selectedDieId) {
+            const oldDie = AppState.mergedDies.find(d => d.die_id === AppState.hoveredDieId);
+            if (oldDie && oldDie.mesh) {
+              oldDie.mesh.material.emissive.setHex(0x000000);
+              oldDie.mesh.material.emissiveIntensity = 0;
+            }
+          }
+          AppState.hoveredDieId = null;
+        }
+      });
+
+      // Camera control buttons
+      document.getElementById('cam-view-2d').addEventListener('click', setCameraTopDown);
+      document.getElementById('cam-view-3d').addEventListener('click', setCameraIsometric);
+      document.getElementById('cam-reset-view').addEventListener('click', setCameraIsometric);
+
+      // Start render loop
+      animate();
+    }
+
+    function applyPreScanMaterial(mesh) {
+      if (!mesh || !mesh.material) return;
+      const isDark = AppState.theme === 'dark';
+
+      // Pre-Scan state: In light mode, provide a sleek, clearly visible silicon slate-grey tint (Slate-400, #94a3b8)
+      // with low transmission (0.05) and subtle metalness/specular sheen so individual dies stand out with crisp clarity
+      // on top of the frosted wafer disc base. In dark mode, use a cool dark slate tint (#334155).
+      mesh.material.color.setHex(isDark ? 0x334155 : 0x94a3b8);
+      mesh.material.transmission = isDark ? 0.20 : 0.05;
+      mesh.material.opacity = 0.94;
+      mesh.material.roughness = 0.28;
+      mesh.material.metalness = 0.20;
+      mesh.material.clearcoat = 0.35;
+      mesh.material.clearcoatRoughness = 0.15;
+      mesh.material.emissive.setHex(0x000000);
+      mesh.material.emissiveIntensity = 0;
+    }
+
+    function clearDieMeshes() {
+      if (!AppState.scene || !AppState.mergedDies) return;
+      AppState.mergedDies.forEach(d => {
+        if (d.mesh) {
+          AppState.scene.remove(d.mesh);
+          if (d.mesh.geometry) d.mesh.geometry.dispose();
+          if (d.mesh.material) {
+            if (Array.isArray(d.mesh.material)) d.mesh.material.forEach(m => m.dispose());
+            else d.mesh.material.dispose();
+          }
+          d.mesh = null;
+        }
+      });
+    }
+
+    function createDieMeshes() {
+      if (!AppState.scene || !AppState.mergedDies) return;
+      clearDieMeshes();
+
+      // Individual Die Meshes: Frosted Silicon Material
+      const dieSize = 0.88;
+      const dieHeight = 0.2;
+      const dieGeo = new THREE.BoxGeometry(dieSize, dieHeight, dieSize);
+
+      AppState.mergedDies.forEach(die => {
+        // Pre-Scan State: tinted sleek grey so dies are clearly visible before scanning
+        const dieMat = new THREE.MeshPhysicalMaterial({
+          roughness: 0.28,
+          ior: 1.45,
+          transparent: true,
+          reflectivity: 0.5,
+          clearcoat: 0.35,
+          clearcoatRoughness: 0.15
+        });
+
+        const mesh = new THREE.Mesh(dieGeo, dieMat);
+        mesh.position.set(die.x, 0.25, die.y);
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        mesh.userData = { die_id: die.die_id, baseY: 0.25 };
+
+        applyPreScanMaterial(mesh);
+
+        AppState.scene.add(mesh);
+        die.mesh = mesh;
+      });
+
+      const hudCount = document.getElementById('hud-die-count');
+      if (hudCount) hudCount.textContent = `${AppState.mergedDies.length}`;
+    }
+
+    function buildThreeWafer() {
+      if (!AppState.scene) return;
+
+      // Remove existing objects if any
+      if (AppState.waferMesh) AppState.scene.remove(AppState.waferMesh);
+      if (AppState.laserMesh) AppState.scene.remove(AppState.laserMesh);
+      clearDieMeshes();
+
+      // 1. Wafer Base: 300mm Circular Disc with SEMI standard notch at South
+      const waferRadius = 14.8;
+      const waferCylinderGeo = new THREE.CylinderGeometry(waferRadius, waferRadius, 0.35, 64);
+
+      // Frosted Glass Material for Wafer Base (transmission: 0.9, roughness: 0.2, ior: 1.5)
+      const waferMat = new THREE.MeshPhysicalMaterial({
+        color: AppState.theme === 'dark' ? 0x1e293b : 0xffffff,
+        transmission: 0.9,
+        roughness: 0.2,
+        ior: 1.5,
+        transparent: true,
+        opacity: 0.85,
+        reflectivity: 0.5,
+        clearcoat: 0.3,
+        clearcoatRoughness: 0.1
+      });
+
+      AppState.waferMesh = new THREE.Mesh(waferCylinderGeo, waferMat);
+      AppState.waferMesh.position.y = -0.18;
+      AppState.waferMesh.receiveShadow = true;
+      AppState.scene.add(AppState.waferMesh);
+
+      // Wafer Notch (SEMI standard 0° South notch marker)
+      const notchGeo = new THREE.BoxGeometry(0.6, 0.45, 0.6);
+      const notchMat = new THREE.MeshBasicMaterial({ color: 0xf59e0b });
+      const notchMesh = new THREE.Mesh(notchGeo, notchMat);
+      notchMesh.position.set(0, -0.15, waferRadius - 0.2);
+      AppState.waferMesh.add(notchMesh);
+
+      // Wafer Outer Rim Ring
+      const ringGeo = new THREE.RingGeometry(waferRadius - 0.05, waferRadius + 0.15, 64);
+      const ringMat = new THREE.MeshBasicMaterial({
+        color: 0x00f3ff,
+        side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.35
+      });
+      const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+      ringMesh.rotation.x = -Math.PI / 2;
+      ringMesh.position.y = 0.01;
+      AppState.scene.add(ringMesh);
+
+      // 2. Individual Die Meshes: Frosted Glass Material
+      createDieMeshes();
+
+      // 3. High-Visibility Composite Laser Scanner (clearly visible in both 2D TOP and 3D ISO)
+      const laserGroup = new THREE.Group();
+      const laserLength = waferRadius * 2.15;
+
+      // 3a. Central bright core laser line
+      const coreGeo = new THREE.BoxGeometry(0.35, 0.45, laserLength);
+      const coreMat = new THREE.MeshBasicMaterial({ color: 0x00f3ff });
+      const coreMesh = new THREE.Mesh(coreGeo, coreMat);
+      coreMesh.position.y = 0.25;
+      laserGroup.add(coreMesh);
+
+      // 3b. Wide surface glow ribbon (flat on wafer plane - highly visible from 2D top view)
+      const ribbonGeo = new THREE.PlaneGeometry(1.8, laserLength);
+      const ribbonMat = new THREE.MeshBasicMaterial({
+        color: 0x00f3ff,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending,
+        side: THREE.DoubleSide
+      });
+      const ribbonMesh = new THREE.Mesh(ribbonGeo, ribbonMat);
+      ribbonMesh.rotation.x = -Math.PI / 2;
+      ribbonMesh.position.y = 0.22;
+      laserGroup.add(ribbonMesh);
+
+      // 3c. Vertical laser light curtain (standing along Y - prominent in 3D ISO view)
+      const curtainGeo = new THREE.BoxGeometry(0.12, 4.4, laserLength);
+      const curtainMat = new THREE.MeshBasicMaterial({
+        color: 0x00f3ff,
+        transparent: true,
+        opacity: 0.4,
+        blending: THREE.AdditiveBlending
+      });
+      const curtainMesh = new THREE.Mesh(curtainGeo, curtainMat);
+      curtainMesh.position.y = 2.2;
+      laserGroup.add(curtainMesh);
+
+      // 3d. Overhead emitter bar
+      const emitterGeo = new THREE.BoxGeometry(0.45, 0.25, laserLength);
+      const emitterMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+      const emitterMesh = new THREE.Mesh(emitterGeo, emitterMat);
+      emitterMesh.position.y = 4.45;
+      laserGroup.add(emitterMesh);
+
+      AppState.laserMesh = laserGroup;
+      AppState.laserMesh.position.set(-16.5, 0, 0);
+      AppState.laserMesh.visible = false;
+      AppState.scene.add(AppState.laserMesh);
+    }
+
+    let cameraTweenId = null;
+
+    function animateCameraTo(targetPos, targetLookAt = new THREE.Vector3(0, 0, 0), onComplete = null) {
+      if (!AppState.camera || !AppState.controls) return;
+      if (cameraTweenId) cancelAnimationFrame(cameraTweenId);
+
+      const startPos = AppState.camera.position.clone();
+      const startTarget = AppState.controls.target.clone();
+      const startTime = performance.now();
+      const duration = 550;
+
+      function stepCam(now) {
+        const elapsed = now - startTime;
+        const t = Math.min(1, elapsed / duration);
+        const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+
+        AppState.camera.position.lerpVectors(startPos, targetPos, ease);
+        AppState.controls.target.lerpVectors(startTarget, targetLookAt, ease);
+        AppState.controls.update();
+
+        if (t < 1) {
+          cameraTweenId = requestAnimationFrame(stepCam);
+        } else {
+          cameraTweenId = null;
+          if (onComplete) onComplete();
+        }
+      }
+      cameraTweenId = requestAnimationFrame(stepCam);
+    }
+
+    function setCameraIsometric() {
+      if (!AppState.camera) return;
+      updateCameraUIState('3d');
+      animateCameraTo(new THREE.Vector3(22, 28, 26));
+    }
+
+    function setCameraTopDown() {
+      if (!AppState.camera) return;
+      updateCameraUIState('2d');
+      animateCameraTo(new THREE.Vector3(0, 36, 0.001));
+    }
+
+    function updateCameraUIState(mode) {
+      const btn2d = document.getElementById('cam-view-2d');
+      const btn3d = document.getElementById('cam-view-3d');
+      const label = document.getElementById('hud-view-label');
+
+      if (mode === '2d') {
+        if (btn2d) {
+          btn2d.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 border border-cyan-400/50 flex items-center gap-1.5 transition-all';
+          const icon = btn2d.querySelector('i');
+          if (icon) icon.className = 'fa-solid fa-bullseye text-[10px] text-cyan-200';
+        }
+        if (btn3d) {
+          btn3d.className = 'px-3 py-1.5 rounded-xl frost-btn text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm flex items-center gap-1.5 transition-all';
+          const icon = btn3d.querySelector('i');
+          if (icon) icon.className = 'fa-solid fa-cube text-[10px] text-blue-600 dark:text-cyan-400';
+        }
+        if (label) label.textContent = '2D TOP-DOWN';
+      } else {
+        if (btn3d) {
+          btn3d.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-gradient-to-r from-blue-600 to-cyan-500 text-white shadow-md shadow-cyan-500/25 border border-cyan-400/50 flex items-center gap-1.5 transition-all';
+          const icon = btn3d.querySelector('i');
+          if (icon) icon.className = 'fa-solid fa-cube text-[10px] text-cyan-200';
+        }
+        if (btn2d) {
+          btn2d.className = 'px-3 py-1.5 rounded-xl frost-btn text-xs font-bold text-slate-700 dark:text-slate-200 shadow-sm flex items-center gap-1.5 transition-all';
+          const icon = btn2d.querySelector('i');
+          if (icon) icon.className = 'fa-solid fa-bullseye text-[10px] text-blue-600 dark:text-cyan-400';
+        }
+        if (label) label.textContent = '3D ISOMETRIC';
+      }
+    }
+
+    function onWindowResize() {
+      const container = document.getElementById('three-canvas-container');
+      if (!container || !AppState.camera || !AppState.renderer) return;
+      const width = container.clientWidth;
+      const height = container.clientHeight;
+      AppState.camera.aspect = width / height;
+      AppState.camera.updateProjectionMatrix();
+      AppState.renderer.setSize(width, height);
+    }
+
+    // ==========================================
+    // 5. INTERACTIVE WAFER SCAN ANIMATION SYSTEM
+    // ==========================================
+    function triggerWaferScan() {
+      if (AppState.isScanning) return;
+      AppState.isScanning = true;
+
+      const btn = document.getElementById('btn-perform-scan');
+      const btnText = document.getElementById('scan-btn-text');
+      const sweepHud = document.getElementById('laser-sweep-hud');
+      const progressBar = document.getElementById('sweep-progress-bar');
+      const percentVal = document.getElementById('sweep-percent-val');
+      const dieCounter = document.getElementById('sweep-die-counter');
+      const statusPill = document.getElementById('scan-status-pill');
+      const statusText = document.getElementById('scan-status-text');
+
+      btn.classList.add('opacity-75', 'cursor-not-allowed');
+      btnText.textContent = 'Scanning Wafer...';
+      sweepHud.classList.remove('hidden');
+      statusPill.className = 'hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-blue-500/15 text-blue-600 dark:text-cyan-400 border border-blue-400/40';
+      statusText.textContent = 'SWEEP ACTIVE';
+
+      // Reset all dies to tinted pre-scan appearance before scan
+      AppState.mergedDies.forEach(d => {
+        if (d.mesh) {
+          applyPreScanMaterial(d.mesh);
+        }
+      });
+
+      // Show laser
+      AppState.laserMesh.visible = true;
+      const startX = -16.0;
+      const endX = 16.0;
+      const duration = 2400; // 2.4s sweep
+      const startTime = performance.now();
+      let scannedCount = 0;
+
+      function stepScan(now) {
+        const elapsed = now - startTime;
+        const progress = Math.min(1, elapsed / duration);
+        const currentX = startX + (endX - startX) * progress;
+
+        AppState.laserMesh.position.x = currentX;
+
+        // Update progress UI
+        const percent = Math.floor(progress * 100);
+        progressBar.style.width = `${percent}%`;
+        percentVal.textContent = `${percent}%`;
+
+        // Colorize dies as laser sweep sweeps over their X coordinate
+        AppState.mergedDies.forEach(die => {
+          if (die.mesh && !die.mesh.userData.scannedThisRound) {
+            const dieX = die.mesh.position.x;
+            if (dieX <= currentX) {
+              die.mesh.userData.scannedThisRound = true;
+              scannedCount++;
+              dieCounter.textContent = `${scannedCount} / ${AppState.mergedDies.length} DIES`;
+
+              // Flash effect
+              applyPostScanColor(die, true);
+            }
+          }
+        });
+
+        if (progress < 1) {
+          requestAnimationFrame(stepScan);
+        } else {
+          // Scan Complete
+          AppState.isScanning = false;
+          AppState.isScanned = true;
+          AppState.laserMesh.visible = false;
+          sweepHud.classList.add('hidden');
+          btn.classList.remove('opacity-75', 'cursor-not-allowed');
+          btnText.textContent = 'Rescan Wafer';
+
+          statusPill.className = 'hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-400/40';
+          statusText.textContent = 'SCANNED [ACTIVE]';
+
+          // Reset scanned flags
+          AppState.mergedDies.forEach(d => {
+            if (d.mesh) delete d.mesh.userData.scannedThisRound;
+          });
+
+          // Re-apply post scan colors firmly & update KPIs
+          updateWaferDisplayForActiveModel();
+        }
+      }
+
+      requestAnimationFrame(stepScan);
+    }
+
+    function applyPostScanColor(die, withFlash = false) {
+      if (!die.mesh) return;
+      const prob = AppState.selectedModel === 'model_a' ? die.fail_prob_A : die.fail_prob_B;
+
+      // Darker, high-contrast, fully opaque colors for instant scan clarity:
+      // Pass (0.0 - 0.4): Deep saturated dark forest/emerald green
+      // Warning (0.4 - 0.7): Deep saturated rich amber/ochre
+      // Defect (>0.7): Deep saturated dark crimson/ruby red
+      let targetColor;
+      let emissiveColor;
+      let emissiveIntensity = 0.35;
+
+      if (prob <= 0.4) {
+        targetColor = 0x15803d; // Tailwind green-700
+        emissiveColor = 0x052e16; // Deep green core glow
+        emissiveIntensity = 0.35;
+      } else if (prob <= 0.7) {
+        targetColor = 0xb45309; // Tailwind amber-700
+        emissiveColor = 0x451a03; // Deep amber core glow
+        emissiveIntensity = 0.3;
+      } else {
+        targetColor = 0x991b1b; // Tailwind red-800
+        emissiveColor = 0x7f1d1d; // Dark crimson core glow
+        emissiveIntensity = 0.55;
+      }
+
+      die.mesh.material.color.setHex(targetColor);
+      die.mesh.material.transmission = 0.0; // Fully solid/opaque, no glass dilution!
+      die.mesh.material.opacity = 1.0;
+      die.mesh.material.roughness = 0.22;
+      die.mesh.material.metalness = 0.08;
+
+      if (withFlash) {
+        die.mesh.material.emissive.setHex(0x00f3ff);
+        die.mesh.material.emissiveIntensity = 0.95;
+        setTimeout(() => {
+          if (die.mesh) {
+            if (die.die_id === AppState.selectedDieId) {
+              die.mesh.material.emissive.setHex(0x00f3ff);
+              die.mesh.material.emissiveIntensity = 0.9;
+            } else {
+              die.mesh.material.emissive.setHex(emissiveColor);
+              die.mesh.material.emissiveIntensity = emissiveIntensity;
+            }
+          }
+        }, 280);
+      } else {
+        if (die.die_id === AppState.selectedDieId) {
+          die.mesh.material.emissive.setHex(0x00f3ff);
+          die.mesh.material.emissiveIntensity = 0.9;
+        } else {
+          die.mesh.material.emissive.setHex(emissiveColor);
+          die.mesh.material.emissiveIntensity = emissiveIntensity;
+        }
+      }
+    }
+
+    function updateWaferDisplayForActiveModel() {
+      if (!AppState.isScanned) return;
+
+      AppState.mergedDies.forEach(die => {
+        applyPostScanColor(die, false);
+      });
+
+      // Maintain selection highlight
+      if (AppState.selectedDieId) {
+        const sel = AppState.mergedDies.find(d => d.die_id === AppState.selectedDieId);
+        if (sel && sel.mesh) {
+          sel.mesh.material.emissive.setHex(0x00f3ff);
+          sel.mesh.material.emissiveIntensity = 0.8;
+        }
+      }
+
+      updateKPICards();
+    }
+
+    // ==========================================
+    // 6. KPI CALCULATIONS & STATS
+    // ==========================================
+    function updateKPICards() {
+      if (AppState.mergedDies.length === 0) return;
+
+      const activeModel = AppState.selectedModel;
+
+      // 1. Flagged Defect Dies (fail_prob > 0.8)
+      const flaggedA = AppState.mergedDies.filter(d => d.fail_prob_A > 0.8).length;
+      const flaggedB = AppState.mergedDies.filter(d => d.fail_prob_B > 0.8).length;
+      const activeFlagged = activeModel === 'model_a' ? flaggedA : flaggedB;
+
+      document.getElementById('kpi-flagged-count').textContent = activeFlagged;
+      document.getElementById('kpi-flagged-a').textContent = `${flaggedA} dies`;
+      document.getElementById('kpi-flagged-b').textContent = `${flaggedB} dies`;
+
+      const flaggedDeltaEl = document.getElementById('kpi-flagged-delta');
+      const diff = flaggedA - flaggedB;
+      if (activeModel === 'model_b') {
+        flaggedDeltaEl.textContent = `-${diff} False Scrap Saved`;
+        flaggedDeltaEl.className = 'text-[11px] font-mono font-bold text-emerald-500';
+      } else {
+        flaggedDeltaEl.textContent = `Baseline Alarm Rate`;
+        flaggedDeltaEl.className = 'text-[11px] font-mono font-bold text-slate-400';
+      }
+
+      // 2. Yield Efficiency Estimate (%)
+      // Dies passing with fail_prob <= 0.50
+      const passA = AppState.mergedDies.filter(d => d.fail_prob_A <= 0.5).length;
+      const passB = AppState.mergedDies.filter(d => d.fail_prob_B <= 0.5).length;
+      const yieldA = ((passA / AppState.mergedDies.length) * 100).toFixed(1);
+      const yieldB = ((passB / AppState.mergedDies.length) * 100).toFixed(1);
+      const activeYield = activeModel === 'model_a' ? yieldA : yieldB;
+
+      document.getElementById('kpi-yield-rate').textContent = `${activeYield}%`;
+      document.getElementById('kpi-yield-baseline').textContent = `${yieldA}%`;
+
+      const yieldDeltaEl = document.getElementById('kpi-yield-delta');
+      const yieldDiff = (parseFloat(yieldB) - parseFloat(yieldA)).toFixed(1);
+      if (activeModel === 'model_b') {
+        yieldDeltaEl.textContent = `+${yieldDiff}% Yield Gain`;
+        yieldDeltaEl.className = 'text-[11px] font-mono font-bold text-emerald-500';
+      } else {
+        yieldDeltaEl.textContent = `Standard Yield Level`;
+        yieldDeltaEl.className = 'text-[11px] font-mono font-bold text-slate-400';
+      }
+
+      // 3. Model Confidence Variance
+      // Variance of probabilities: sigma^2 = (1/N) * sum((p - mean)^2)
+      const probsA = AppState.mergedDies.map(d => d.fail_prob_A);
+      const probsB = AppState.mergedDies.map(d => d.fail_prob_B);
+      const meanA = probsA.reduce((a, b) => a + b, 0) / probsA.length;
+      const meanB = probsB.reduce((a, b) => a + b, 0) / probsB.length;
+      const varA = (probsA.reduce((acc, p) => acc + Math.pow(p - meanA, 2), 0) / probsA.length).toFixed(3);
+      const varB = (probsB.reduce((acc, p) => acc + Math.pow(p - meanB, 2), 0) / probsB.length).toFixed(3);
+      const activeVar = activeModel === 'model_a' ? varA : varB;
+
+      document.getElementById('kpi-variance-val').textContent = activeVar;
+      document.getElementById('kpi-var-a').textContent = varA;
+      document.getElementById('kpi-var-b').textContent = varB;
+
+      const varEvalEl = document.getElementById('kpi-variance-eval');
+      if (activeModel === 'model_b') {
+        varEvalEl.textContent = 'Sharp Bimodal Boundary';
+      } else {
+        varEvalEl.textContent = 'Diffuse Baseline Spread';
+      }
+    }
+
+    // ==========================================
+    // 7. DIE INTERACTION, SIDE DRAWER & SPARKLINE CHART
+    // ==========================================
+    function onCanvasMouseMove(event) {
+      const container = document.getElementById('three-canvas-container');
+      const rect = container.getBoundingClientRect();
+      AppState.mouse.x = ((event.clientX - rect.left) / container.clientWidth) * 2 - 1;
+      AppState.mouse.y = -((event.clientY - rect.top) / container.clientHeight) * 2 + 1;
+
+      if (!AppState.camera || !AppState.scene) return;
+      AppState.raycaster.setFromCamera(AppState.mouse, AppState.camera);
+
+      const meshes = AppState.mergedDies.map(d => d.mesh).filter(Boolean);
+      const intersects = AppState.raycaster.intersectObjects(meshes);
+
+      const tooltip = document.getElementById('wafer-hover-tooltip');
+
+      if (intersects.length > 0) {
+        container.style.cursor = 'pointer';
+        const hitDieId = intersects[0].object.userData.die_id;
+        const hitDie = AppState.mergedDies.find(d => d.die_id === hitDieId);
+
+        if (AppState.hoveredDieId !== hitDieId) {
+          if (!AppState.isScanned) {
+            if (AppState.hoveredDieId && AppState.hoveredDieId !== AppState.selectedDieId) {
+              const oldDie = AppState.mergedDies.find(d => d.die_id === AppState.hoveredDieId);
+              if (oldDie && oldDie.mesh) {
+                oldDie.mesh.material.emissive.setHex(0x000000);
+                oldDie.mesh.material.emissiveIntensity = 0;
+              }
+            }
+            if (hitDie && hitDie.mesh && hitDie.die_id !== AppState.selectedDieId) {
+              hitDie.mesh.material.emissive.setHex(0x00f3ff);
+              hitDie.mesh.material.emissiveIntensity = 0.45;
+            }
+          }
+          AppState.hoveredDieId = hitDieId;
+        }
+
+        if (hitDie) {
+          const prob = AppState.selectedModel === 'model_a' ? hitDie.fail_prob_A : hitDie.fail_prob_B;
+          const probPct = (prob * 100).toFixed(1);
+
+          document.getElementById('tooltip-die-id').textContent = `DIE #${hitDie.die_id}`;
+          document.getElementById('tooltip-coords').textContent = `X:${hitDie.x > 0 ? '+' : ''}${hitDie.x}, Y:${hitDie.y > 0 ? '+' : ''}${hitDie.y}`;
+          document.getElementById('tooltip-fail-prob').textContent = `${probPct}%`;
+
+          const badge = document.getElementById('tooltip-risk-badge');
+          if (prob > 0.7) {
+            badge.textContent = 'DEFECT';
+            badge.className = 'px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-500/20 text-rose-500';
+          } else if (prob > 0.4) {
+            badge.textContent = 'WARNING';
+            badge.className = 'px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-500/20 text-amber-500';
+          } else {
+            badge.textContent = 'CLEAR';
+            badge.className = 'px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-500/20 text-emerald-500';
+          }
+
+          tooltip.style.left = `${event.clientX}px`;
+          tooltip.style.top = `${event.clientY - 12}px`;
+          tooltip.style.opacity = '1';
+        }
+      } else {
+        container.style.cursor = 'grab';
+        tooltip.style.opacity = '0';
+        if (AppState.hoveredDieId !== null) {
+          if (!AppState.isScanned && AppState.hoveredDieId !== AppState.selectedDieId) {
+            const oldDie = AppState.mergedDies.find(d => d.die_id === AppState.hoveredDieId);
+            if (oldDie && oldDie.mesh) {
+              oldDie.mesh.material.emissive.setHex(0x000000);
+              oldDie.mesh.material.emissiveIntensity = 0;
+            }
+          }
+          AppState.hoveredDieId = null;
+        }
+      }
+    }
+
+    function onCanvasClick(event) {
+      if (!AppState.camera || !AppState.scene) return;
+      const meshes = AppState.mergedDies.map(d => d.mesh).filter(Boolean);
+      const intersects = AppState.raycaster.intersectObjects(meshes);
+
+      if (intersects.length > 0) {
+        const hitDieId = intersects[0].object.userData.die_id;
+        inspectDie(hitDieId, true);
+      }
+    }
+
+    function inspectDie(dieId, pulseCamera = false) {
+      const die = AppState.mergedDies.find(d => d.die_id === dieId);
+      if (!die) return;
+
+      // Unhighlight previous die cleanly
+      if (AppState.selectedDieId) {
+        const prev = AppState.mergedDies.find(d => d.die_id === AppState.selectedDieId);
+        if (prev && prev.mesh) {
+          if (AppState.isScanned) {
+            applyPostScanColor(prev, false);
+          } else {
+            applyPreScanMaterial(prev.mesh);
+          }
+        }
+      }
+
+      AppState.selectedDieId = dieId;
+
+      // Highlight selected die
+      if (die.mesh) {
+        die.mesh.material.emissive.setHex(0x00f3ff);
+        die.mesh.material.emissiveIntensity = 0.85;
+
+        if (pulseCamera && AppState.controls) {
+          // Gently focus target
+          AppState.controls.target.set(die.mesh.position.x * 0.5, 0, die.mesh.position.z * 0.5);
+          AppState.controls.update();
+        }
+      }
+
+      // Update Side Drawer UI
+      document.getElementById('drawer-die-title').textContent = `DIE #${die.die_id} INSPECTION`;
+      document.getElementById('drawer-coords').textContent = `X:${die.x > 0 ? '+' : ''}${die.x}, Y:${die.y > 0 ? '+' : ''}${die.y}`;
+
+      const activeProb = AppState.selectedModel === 'model_a' ? die.fail_prob_A : die.fail_prob_B;
+      const activeRiskEl = document.getElementById('drawer-risk-score');
+      activeRiskEl.textContent = `${(activeProb * 100).toFixed(1)}%`;
+
+      const statusPill = document.getElementById('drawer-status-pill');
+      if (activeProb > 0.7) {
+        statusPill.textContent = 'DEFECT RISK';
+        statusPill.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/20 text-rose-500 border border-rose-400/30';
+        activeRiskEl.className = 'font-bold text-rose-500 text-sm mt-0.5';
+      } else if (activeProb > 0.4) {
+        statusPill.textContent = 'ELEVATED RISK';
+        statusPill.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/20 text-amber-500 border border-amber-400/30';
+        activeRiskEl.className = 'font-bold text-amber-500 text-sm mt-0.5';
+      } else {
+        statusPill.textContent = 'NOMINAL PASS';
+        statusPill.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-500 border border-emerald-400/30';
+        activeRiskEl.className = 'font-bold text-emerald-500 text-sm mt-0.5';
+      }
+
+      const labelEl = document.getElementById('drawer-label');
+      if (die.label === 1) {
+        labelEl.textContent = 'FAIL [1]';
+        labelEl.className = 'font-bold text-rose-500 text-sm mt-0.5';
+      } else {
+        labelEl.textContent = 'PASS [0]';
+        labelEl.className = 'font-bold text-emerald-500 text-sm mt-0.5';
+      }
+
+      document.getElementById('drawer-prob-a').textContent = `${(die.fail_prob_A * 100).toFixed(1)}%`;
+      document.getElementById('drawer-prob-b').textContent = `${(die.fail_prob_B * 100).toFixed(1)}%`;
+
+      const discVal = ((die.fail_prob_B - die.fail_prob_A) * 100).toFixed(1);
+      const discEl = document.getElementById('drawer-discrepancy');
+      discEl.textContent = `${discVal > 0 ? '+' : ''}${discVal}%`;
+      if (discVal > 15) {
+        discEl.className = 'font-bold text-rose-500 text-sm mt-0.5';
+        document.getElementById('drawer-comparison-summary').textContent = '1D-CNN Detected Scratch/Cluster';
+      } else if (discVal < -15) {
+        discEl.className = 'font-bold text-emerald-500 text-sm mt-0.5';
+        document.getElementById('drawer-comparison-summary').textContent = '1D-CNN Filtered False Alarm';
+      } else {
+        discEl.className = 'font-bold text-slate-400 text-sm mt-0.5';
+        document.getElementById('drawer-comparison-summary').textContent = 'Concordant Inference';
+      }
+
+      // Render 2,000-point signal sparkline chart
+      renderSparklineChart(die.signal_2000);
+    }
+
+    function renderDieAnomalyGraph(signalData) {
+      const canvas = document.getElementById('sparkline-canvas');
+      if (!canvas || !signalData || !signalData.length) return;
+
+      const isDark = AppState.theme === 'dark';
+
+      // 1. Statistical anomaly computation
+      const N = signalData.length;
+      let sum = 0;
+      for (let i = 0; i < N; i++) sum += signalData[i];
+      const mean = sum / N;
+
+      let varianceSum = 0;
+      for (let i = 0; i < N; i++) {
+        varianceSum += Math.pow(signalData[i] - mean, 2);
+      }
+      const stdDev = Math.sqrt(varianceSum / N) || 0.001;
+
+      // 2.5 sigma Upper & Lower Control Limits
+      const ucl = mean + 2.5 * stdDev;
+      const lcl = mean - 2.5 * stdDev;
+
+      let outlierCount = 0;
+      let maxZ = 0;
+      for (let i = 0; i < N; i++) {
+        const z = Math.abs(signalData[i] - mean) / stdDev;
+        if (z > maxZ) maxZ = z;
+        if (signalData[i] > ucl || signalData[i] < lcl) {
+          outlierCount++;
+        }
+      }
+
+      const anomalyDensity = ((outlierCount / N) * 100).toFixed(1);
+      const activeDie = AppState.selectedDieId ? AppState.mergedDies.find(d => d.die_id === AppState.selectedDieId) : null;
+      const activeProb = activeDie ? (AppState.selectedModel === 'model_a' ? activeDie.fail_prob_A : activeDie.fail_prob_B) : 0;
+
+      // Update diagnostic pills in side drawer
+      const statusEl = document.getElementById('drawer-anomaly-status');
+      const maxEl = document.getElementById('drawer-anomaly-max');
+      const densityEl = document.getElementById('drawer-anomaly-density');
+
+      if (maxEl) maxEl.textContent = `+${maxZ.toFixed(2)}σ`;
+      if (densityEl) densityEl.textContent = `${anomalyDensity}%`;
+
+      if (statusEl) {
+        if (activeProb > 0.7 || outlierCount > 120) {
+          statusEl.textContent = 'ANOMALY DETECTED';
+          statusEl.className = 'font-extrabold text-rose-500 mt-0.5 text-[10px] truncate';
+        } else if (activeProb > 0.4 || outlierCount > 40) {
+          statusEl.textContent = 'ELEVATED FLUX';
+          statusEl.className = 'font-extrabold text-amber-500 mt-0.5 text-[10px] truncate';
+        } else {
+          statusEl.textContent = 'NOMINAL PASS';
+          statusEl.className = 'font-extrabold text-emerald-500 mt-0.5 text-[10px] truncate';
+        }
+      }
+
+      // Downsample to 200 points for smooth rendering
+      const samples = 200;
+      const step = Math.max(1, Math.floor(N / samples));
+      const downsampledSignal = [];
+      const downsampledUCL = [];
+      const downsampledLCL = [];
+      const residualsZ2 = [];
+      const thresholdZ2 = [];
+      const labels = [];
+
+      for (let i = 0; i < N; i += step) {
+        const val = signalData[i];
+        downsampledSignal.push(val);
+        downsampledUCL.push(Number(ucl.toFixed(3)));
+        downsampledLCL.push(Number(lcl.toFixed(3)));
+
+        const z2 = Math.pow((val - mean) / stdDev, 2);
+        residualsZ2.push(Number(z2.toFixed(2)));
+        thresholdZ2.push(6.25); // (2.5)^2 = 6.25 anomaly threshold
+        labels.push(i);
+      }
+
+      if (AppState.sparklineChart) {
+        AppState.sparklineChart.destroy();
+      }
+
+      const ctx = canvas.getContext('2d');
+      let datasets = [];
+
+      if (AppState.dieAnomalyGraphMode === 'residual') {
+        // Mode: Normalized Squared Residuals z²
+        const barColors = residualsZ2.map(v => v >= 6.25 ? 'rgba(239, 68, 68, 0.85)' : 'rgba(0, 243, 255, 0.6)');
+        datasets = [
+          {
+            type: 'bar',
+            label: 'Residual z²',
+            data: residualsZ2,
+            backgroundColor: barColors,
+            borderRadius: 2,
+            barPercentage: 0.8
+          },
+          {
+            type: 'line',
+            label: 'Alarm z² = 6.25 (2.5σ)',
+            data: thresholdZ2,
+            borderColor: '#ef4444',
+            borderWidth: 1.5,
+            borderDash: [4, 4],
+            pointRadius: 0,
+            fill: false
+          }
+        ];
+      } else {
+        // Mode: Signal & ±2.5σ Bounds
+        const gradient = ctx.createLinearGradient(0, 0, 0, 100);
+        gradient.addColorStop(0, 'rgba(0, 243, 255, 0.45)');
+        gradient.addColorStop(1, 'rgba(0, 243, 255, 0.0)');
+
+        datasets = [
+          {
+            type: 'line',
+            label: 'Sensor Waveform',
+            data: downsampledSignal,
+            borderColor: '#00f3ff',
+            borderWidth: 1.6,
+            backgroundColor: gradient,
+            fill: true,
+            tension: 0.25,
+            pointRadius: 0
+          },
+          {
+            type: 'line',
+            label: '+2.5σ UCL',
+            data: downsampledUCL,
+            borderColor: '#f59e0b',
+            borderWidth: 1.2,
+            borderDash: [4, 4],
+            pointRadius: 0,
+            fill: false
+          },
+          {
+            type: 'line',
+            label: '-2.5σ LCL',
+            data: downsampledLCL,
+            borderColor: '#f59e0b',
+            borderWidth: 1.2,
+            borderDash: [4, 4],
+            pointRadius: 0,
+            fill: false
+          }
+        ];
+      }
+
+      AppState.sparklineChart = new Chart(ctx, {
+        type: AppState.dieAnomalyGraphMode === 'residual' ? 'bar' : 'line',
+        data: { labels, datasets },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 250 },
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+              align: 'end',
+              labels: {
+                boxWidth: 8,
+                boxHeight: 8,
+                font: { size: 8, family: 'JetBrains Mono' },
+                color: isDark ? '#94a3b8' : '#64748b'
+              }
+            },
+            tooltip: {
+              enabled: true,
+              mode: 'index',
+              intersect: false,
+              backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+              titleColor: isDark ? '#fff' : '#0f172a',
+              bodyColor: isDark ? '#94a3b8' : '#475569',
+              callbacks: {
+                title: (items) => `Sample #${items[0].label}`,
+                label: (item) => `${item.dataset.label}: ${item.formattedValue}`
+              }
+            }
+          },
+          scales: {
+            x: { display: false },
+            y: {
+              display: true,
+              grid: { color: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)' },
+              ticks: {
+                color: isDark ? '#64748b' : '#94a3b8',
+                font: { size: 9, family: 'JetBrains Mono' },
+                maxTicksLimit: 3
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // Alias for existing callers
+    function renderSparklineChart(signalData) {
+      renderDieAnomalyGraph(signalData);
+    }
+
+    function updateSparklineTheme() {
+      if (AppState.selectedDieId) {
+        const die = AppState.mergedDies.find(d => d.die_id === AppState.selectedDieId);
+        if (die) renderDieAnomalyGraph(die.signal_2000);
+      }
+    }
+
+    function renderWaferAnomalyChart() {
+      const canvas = document.getElementById('wafer-anomaly-chart-canvas');
+      if (!canvas || !AppState.mergedDies || !AppState.mergedDies.length) return;
+
+      const isDark = AppState.theme === 'dark';
+
+      // Aggregate dies into 12 concentric radial wafer zones (center 0mm to edge ~150mm)
+      const numZones = 12;
+      const maxRadius = 14.8;
+      const zoneStep = maxRadius / numZones;
+
+      const zonesA = new Array(numZones).fill(0);
+      const zonesB = new Array(numZones).fill(0);
+      const zoneCounts = new Array(numZones).fill(0);
+      const zoneLabels = [];
+      const thresholdLine = [];
+
+      for (let z = 0; z < numZones; z++) {
+        const rMin = (z * zoneStep * 10).toFixed(0);
+        const rMax = ((z + 1) * zoneStep * 10).toFixed(0);
+        zoneLabels.push(`${rMin}-${rMax}mm`);
+        thresholdLine.push(70); // 70% Defect Anomaly Threshold
+      }
+
+      AppState.mergedDies.forEach(d => {
+        const r = Math.sqrt(d.x * d.x + d.y * d.y);
+        let zoneIdx = Math.floor(r / zoneStep);
+        if (zoneIdx >= numZones) zoneIdx = numZones - 1;
+
+        zonesA[zoneIdx] += d.fail_prob_A * 100;
+        zonesB[zoneIdx] += d.fail_prob_B * 100;
+        zoneCounts[zoneIdx]++;
+      });
+
+      const avgZonesA = zonesA.map((sum, i) => zoneCounts[i] ? Number((sum / zoneCounts[i]).toFixed(1)) : 0);
+      const avgZonesB = zonesB.map((sum, i) => zoneCounts[i] ? Number((sum / zoneCounts[i]).toFixed(1)) : 0);
+
+      if (AppState.waferAnomalyChart) {
+        AppState.waferAnomalyChart.destroy();
+      }
+
+      const ctx = canvas.getContext('2d');
+      const gradB = ctx.createLinearGradient(0, 0, 0, 140);
+      gradB.addColorStop(0, 'rgba(0, 243, 255, 0.45)');
+      gradB.addColorStop(1, 'rgba(0, 243, 255, 0.0)');
+
+      AppState.waferAnomalyChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: zoneLabels,
+          datasets: [
+            {
+              label: '1D-CNN Anomaly Risk',
+              data: avgZonesB,
+              borderColor: '#00f3ff',
+              borderWidth: 2.2,
+              backgroundColor: gradB,
+              fill: true,
+              tension: 0.35,
+              pointBackgroundColor: '#00f3ff',
+              pointRadius: 3,
+              pointHoverRadius: 6
+            },
+            {
+              label: 'XGBoost Baseline',
+              data: avgZonesA,
+              borderColor: '#6366f1',
+              borderWidth: 1.8,
+              borderDash: [4, 4],
+              pointRadius: 2,
+              fill: false,
+              tension: 0.35
+            },
+            {
+              label: 'Critical Anomaly Alarm (70%)',
+              data: thresholdLine,
+              borderColor: '#ef4444',
+              borderWidth: 1.5,
+              borderDash: [6, 4],
+              pointRadius: 0,
+              fill: false
+            }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          animation: { duration: 300 },
+          plugins: {
+            legend: {
+              display: true,
+              position: 'top',
+              align: 'end',
+              labels: {
+                boxWidth: 8,
+                boxHeight: 8,
+                font: { size: 9, family: 'JetBrains Mono' },
+                color: isDark ? '#94a3b8' : '#64748b'
+              }
+            },
+            tooltip: {
+              enabled: true,
+              mode: 'index',
+              intersect: false,
+              backgroundColor: isDark ? 'rgba(15, 23, 42, 0.95)' : 'rgba(255, 255, 255, 0.95)',
+              titleColor: isDark ? '#fff' : '#0f172a',
+              bodyColor: isDark ? '#94a3b8' : '#475569',
+              callbacks: {
+                title: (items) => `Radial Wafer Ring: ${items[0].label}`,
+                label: (c) => `${c.dataset.label}: ${c.formattedValue}%`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: {
+                color: isDark ? '#64748b' : '#94a3b8',
+                font: { size: 9, family: 'JetBrains Mono' },
+                maxRotation: 0
+              }
+            },
+            y: {
+              min: 0,
+              max: 100,
+              grid: { color: isDark ? 'rgba(255, 255, 255, 0.06)' : 'rgba(0, 0, 0, 0.06)' },
+              ticks: {
+                color: isDark ? '#64748b' : '#94a3b8',
+                font: { size: 9, family: 'JetBrains Mono' },
+                stepSize: 25,
+                callback: (v) => `${v}%`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    // ==========================================
+    // 8. BOTTOM DRAWER: TABLE & DISCREPANCY CHART
+    // ==========================================
+    function initAccordion() {
+      const toggleBtn = document.getElementById('accordion-toggle-btn');
+      const content = document.getElementById('accordion-content');
+      const chevron = document.getElementById('accordion-chevron');
+
+      toggleBtn.addEventListener('click', () => {
+        AppState.accordionOpen = !AppState.accordionOpen;
+        if (AppState.accordionOpen) {
+          content.classList.remove('hidden');
+          chevron.classList.add('rotate-180');
+          setTimeout(() => {
+            if (AppState.bottomChartTab === 'anomaly' && AppState.waferAnomalyChart) {
+              AppState.waferAnomalyChart.resize();
+            } else if (AppState.discrepancyChart) {
+              AppState.discrepancyChart.resize();
+            }
+          }, 60);
+        } else {
+          content.classList.add('hidden');
+          chevron.classList.remove('rotate-180');
+        }
+      });
+
+      // Search input filter
+      document.getElementById('table-search-input').addEventListener('input', (e) => {
+        renderFlaggedDiesTable(e.target.value);
+      });
+    }
+
+    function initBottomDrawerTabs() {
+      const btnAnomaly = document.getElementById('tab-btn-wafer-anomaly');
+      const btnDisc = document.getElementById('tab-btn-discrepancy');
+      const panelAnomaly = document.getElementById('panel-wafer-anomaly');
+      const panelDisc = document.getElementById('panel-discrepancy');
+      const subtext = document.getElementById('tab-chart-subtext');
+
+      if (!btnAnomaly || !btnDisc) return;
+
+      btnAnomaly.addEventListener('click', () => {
+        AppState.bottomChartTab = 'anomaly';
+        btnAnomaly.className = 'px-2.5 py-1 rounded-lg font-bold bg-blue-600 dark:bg-cyan-500 text-white shadow-sm flex items-center gap-1.5 transition';
+        btnDisc.className = 'px-2.5 py-1 rounded-lg font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1.5 transition';
+        panelAnomaly.classList.remove('hidden');
+        panelDisc.classList.add('hidden');
+        if (subtext) subtext.textContent = 'Radial Defect Profile (Center→Edge)';
+
+        setTimeout(() => {
+          if (AppState.waferAnomalyChart) {
+            AppState.waferAnomalyChart.resize();
+          } else {
+            renderWaferAnomalyChart();
+          }
+        }, 50);
+      });
+
+      btnDisc.addEventListener('click', () => {
+        AppState.bottomChartTab = 'discrepancy';
+        btnDisc.className = 'px-2.5 py-1 rounded-lg font-bold bg-blue-600 dark:bg-cyan-500 text-white shadow-sm flex items-center gap-1.5 transition';
+        btnAnomaly.className = 'px-2.5 py-1 rounded-lg font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white flex items-center gap-1.5 transition';
+        panelDisc.classList.remove('hidden');
+        panelAnomaly.classList.add('hidden');
+        if (subtext) subtext.textContent = 'Overkill Reduction & Defect Gain';
+
+        setTimeout(() => {
+          if (AppState.discrepancyChart) {
+            AppState.discrepancyChart.resize();
+          } else {
+            renderDiscrepancyChart();
+          }
+        }, 50);
+      });
+    }
+
+    function initDieAnomalyGraphModes() {
+      const btnSignal = document.getElementById('btn-graph-mode-signal');
+      const btnResidual = document.getElementById('btn-graph-mode-residual');
+
+      if (!btnSignal || !btnResidual) return;
+
+      btnSignal.addEventListener('click', () => {
+        AppState.dieAnomalyGraphMode = 'signal';
+        btnSignal.className = 'px-2 py-0.5 rounded font-bold bg-blue-600 dark:bg-cyan-500 text-white shadow-sm transition';
+        btnResidual.className = 'px-2 py-0.5 rounded font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition';
+        if (AppState.selectedDieId) {
+          const die = AppState.mergedDies.find(d => d.die_id === AppState.selectedDieId);
+          if (die) renderDieAnomalyGraph(die.signal_2000);
+        }
+      });
+
+      btnResidual.addEventListener('click', () => {
+        AppState.dieAnomalyGraphMode = 'residual';
+        btnResidual.className = 'px-2 py-0.5 rounded font-bold bg-blue-600 dark:bg-cyan-500 text-white shadow-sm transition';
+        btnSignal.className = 'px-2 py-0.5 rounded font-bold text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition';
+        if (AppState.selectedDieId) {
+          const die = AppState.mergedDies.find(d => d.die_id === AppState.selectedDieId);
+          if (die) renderDieAnomalyGraph(die.signal_2000);
+        }
+      });
+    }
+
+    function renderFlaggedDiesTable(searchTerm = '') {
+      const tbody = document.getElementById('flagged-dies-tbody');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+
+      const term = searchTerm.trim().toLowerCase();
+
+      // Flagged high-risk dies: fail_prob > 0.70 in either model
+      let flagged = AppState.mergedDies.filter(d => d.fail_prob_A > 0.7 || d.fail_prob_B > 0.7);
+
+      document.getElementById('accordion-count-badge').textContent = `${flagged.length} FLAGGED DIES`;
+
+      if (term) {
+        flagged = flagged.filter(d => 
+          `#${d.die_id}`.includes(term) ||
+          `${d.die_id}`.includes(term) ||
+          `x:${d.x}`.includes(term) ||
+          `y:${d.y}`.includes(term) ||
+          `${d.x},${d.y}`.includes(term)
+        );
+      }
+
+      flagged.slice(0, 100).forEach(die => {
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-slate-50 dark:hover:bg-white/5 transition cursor-pointer';
+
+        const disc = Number((die.fail_prob_B - die.fail_prob_A).toFixed(3));
+        const discPct = (disc * 100).toFixed(1);
+        const discColor = disc > 0 ? 'text-rose-500' : 'text-emerald-500';
+
+        tr.innerHTML = `
+          <td class="py-2 px-3 font-bold text-slate-800 dark:text-slate-100">#${die.die_id}</td>
+          <td class="py-2 px-2 text-slate-500 dark:text-slate-400">X:${die.x > 0 ? '+' : ''}${die.x}, Y:${die.y > 0 ? '+' : ''}${die.y}</td>
+          <td class="py-2 px-2 text-center text-blue-600 dark:text-cyan-400 font-bold">${(die.fail_prob_A * 100).toFixed(1)}%</td>
+          <td class="py-2 px-2 text-center text-rose-500 font-bold">${(die.fail_prob_B * 100).toFixed(1)}%</td>
+          <td class="py-2 px-2 text-center">
+            <span class="px-1.5 py-0.5 rounded text-[9px] font-bold ${die.label === 1 ? 'bg-rose-500/15 text-rose-500' : 'bg-emerald-500/15 text-emerald-500'}">
+              ${die.label === 1 ? 'FAIL' : 'PASS'}
+            </span>
+          </td>
+          <td class="py-2 px-2 text-right font-bold ${discColor}">${disc > 0 ? '+' : ''}${discPct}%</td>
+          <td class="py-2 px-3 text-right">
+            <button class="px-2 py-0.5 rounded-lg frost-btn text-[10px] font-bold text-blue-600 dark:text-cyan-300 hover:brightness-110" onclick="window.inspectDieFromTable(${die.die_id})">
+              INSPECT
+            </button>
+          </td>
+        `;
+
+        tr.addEventListener('mouseenter', () => {
+          AppState.hoveredDieId = die.die_id;
+        });
+
+        tr.addEventListener('mouseleave', () => {
+          if (AppState.hoveredDieId === die.die_id) {
+            AppState.hoveredDieId = null;
+          }
+        });
+
+        tr.addEventListener('click', (e) => {
+          if (e.target.tagName !== 'BUTTON') {
+            inspectDie(die.die_id, true);
+          }
+        });
+
+        tbody.appendChild(tr);
+      });
+
+      if (flagged.length === 0) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `<td colspan="7" class="py-4 text-center text-slate-400">No flagged dies match "${term}"</td>`;
+        tbody.appendChild(tr);
+      }
+    }
+
+    window.inspectDieFromTable = function(dieId) {
+      inspectDie(dieId, true);
+    };
+
+    function renderDiscrepancyChart() {
+      const canvas = document.getElementById('discrepancy-chart-canvas');
+      if (!canvas) return;
+
+      const isDark = AppState.theme === 'dark';
+
+      // Pick high discrepancy dies
+      const sampleDies = [...AppState.mergedDies]
+        .sort((a, b) => Math.abs(b.fail_prob_B - b.fail_prob_A) - Math.abs(a.fail_prob_B - a.fail_prob_A))
+        .slice(0, 24);
+
+      const labels = sampleDies.map(d => `#${d.die_id}`);
+      const dataPoints = sampleDies.map(d => Number(((d.fail_prob_B - d.fail_prob_A) * 100).toFixed(1)));
+      const colors = dataPoints.map(v => v >= 0 ? 'rgba(239, 68, 68, 0.75)' : 'rgba(16, 185, 129, 0.75)');
+
+      if (AppState.discrepancyChart) {
+        AppState.discrepancyChart.destroy();
+      }
+
+      const ctx = canvas.getContext('2d');
+      AppState.discrepancyChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Discrepancy (fail_prob_B - fail_prob_A) %',
+            data: dataPoints,
+            backgroundColor: colors,
+            borderRadius: 4
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              callbacks: {
+                label: (c) => `Δ: ${c.formattedValue}% (${c.raw >= 0 ? '1D-CNN flagged' : 'XGBoost overkill avoided'})`
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { display: false },
+              ticks: {
+                color: isDark ? '#64748b' : '#94a3b8',
+                font: { size: 9, family: 'JetBrains Mono' },
+                maxRotation: 45
+              }
+            },
+            y: {
+              grid: { color: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)' },
+              ticks: {
+                color: isDark ? '#64748b' : '#94a3b8',
+                font: { size: 9, family: 'JetBrains Mono' },
+                callback: (v) => `${v}%`
+              }
+            }
+          }
+        }
+      });
+    }
+
+    function updateDiscrepancyTheme() {
+      renderDiscrepancyChart();
+    }
+
+    // ==========================================
+    // 8B. LOT MANAGEMENT & RESET LOGIC
+    // ==========================================
+    function resetKPICards() {
+      // 1. Flagged Defect Dies
+      const flaggedCount = document.getElementById('kpi-flagged-count');
+      const flaggedA = document.getElementById('kpi-flagged-a');
+      const flaggedB = document.getElementById('kpi-flagged-b');
+      const flaggedDelta = document.getElementById('kpi-flagged-delta');
+
+      if (flaggedCount) flaggedCount.textContent = '--';
+      if (flaggedA) flaggedA.textContent = '--';
+      if (flaggedB) flaggedB.textContent = '--';
+      if (flaggedDelta) {
+        flaggedDelta.textContent = 'Awaiting scan';
+        flaggedDelta.className = 'text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400';
+      }
+
+      // 2. Yield Efficiency Estimate
+      const yieldRate = document.getElementById('kpi-yield-rate');
+      const yieldBase = document.getElementById('kpi-yield-baseline');
+      const yieldDelta = document.getElementById('kpi-yield-delta');
+      if (yieldRate) yieldRate.textContent = '--%';
+      if (yieldBase) yieldBase.textContent = '--%';
+      if (yieldDelta) {
+        yieldDelta.textContent = 'Awaiting scan';
+        yieldDelta.className = 'text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400';
+      }
+
+      // 3. Model Confidence Variance
+      const varVal = document.getElementById('kpi-variance-val');
+      const varA = document.getElementById('kpi-var-a');
+      const varB = document.getElementById('kpi-var-b');
+      const varEval = document.getElementById('kpi-variance-eval');
+      if (varVal) varVal.textContent = '--';
+      if (varA) varA.textContent = '--';
+      if (varB) varB.textContent = '--';
+      if (varEval) {
+        varEval.textContent = 'Awaiting scan';
+        varEval.className = 'text-[11px] font-mono font-bold text-slate-500 dark:text-slate-400';
+      }
+    }
+
+    function clearActiveDieSelection() {
+      if (AppState.selectedDieId) {
+        const prevDie = AppState.mergedDies.find(d => d.die_id === AppState.selectedDieId);
+        if (prevDie && prevDie.mesh) {
+          prevDie.mesh.material.emissive.setHex(0x000000);
+          prevDie.mesh.material.emissiveIntensity = 0;
+        }
+      }
+      AppState.selectedDieId = null;
+
+      const titleEl = document.getElementById('drawer-die-title');
+      const coordsEl = document.getElementById('drawer-coords');
+      const riskEl = document.getElementById('drawer-risk-score');
+      const probAEl = document.getElementById('drawer-prob-a');
+      const probBEl = document.getElementById('drawer-prob-b');
+      const discEl = document.getElementById('drawer-discrepancy');
+      const statusPill = document.getElementById('drawer-status-pill');
+      const labelEl = document.getElementById('drawer-label');
+      const statusEl = document.getElementById('drawer-anomaly-status');
+      const outlierEl = document.getElementById('drawer-max-outlier');
+      const densityEl = document.getElementById('drawer-anomaly-density');
+      const compSummary = document.getElementById('drawer-comparison-summary');
+
+      if (titleEl) titleEl.textContent = 'NO DIE SELECTED';
+      if (coordsEl) coordsEl.textContent = 'X: --, Y: --';
+      if (riskEl) {
+        riskEl.textContent = '--%';
+        riskEl.className = 'font-bold text-slate-400 text-sm mt-0.5';
+      }
+      if (statusPill) {
+        statusPill.textContent = 'AWAITING SCAN';
+        statusPill.className = 'px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-500/20 text-slate-400 border border-slate-400/30';
+      }
+      if (labelEl) {
+        labelEl.textContent = '--';
+        labelEl.className = 'font-bold text-slate-400 text-sm mt-0.5';
+      }
+      if (probAEl) probAEl.textContent = '--%';
+      if (probBEl) probBEl.textContent = '--%';
+      if (discEl) {
+        discEl.textContent = '--%';
+        discEl.className = 'font-bold text-slate-400 text-sm mt-0.5';
+      }
+      if (compSummary) compSummary.textContent = 'Awaiting Selection';
+      if (statusEl) statusEl.textContent = 'AWAITING SCAN';
+      if (outlierEl) outlierEl.textContent = '--';
+      if (densityEl) densityEl.textContent = '--%';
+
+      if (AppState.sparklineChart) {
+        AppState.sparklineChart.destroy();
+        AppState.sparklineChart = null;
+      }
+    }
+
+    async function handleLotFileUpload(e) {
+      const files = Array.from(e.target.files || []);
+      if (!files.length) return;
+
+      try {
+        let loadedA = null;
+        let loadedB = null;
+
+        // Clean lot name extraction from filename
+        let lotName = files[0].name
+          .replace(/\.[^/.]+$/, '')
+          .replace(/wafer_predictions/i, '')
+          .replace(/[\(\)]/g, '')
+          .replace(/model\s*[ab]/i, '')
+          .trim();
+        if (!lotName) lotName = `LOT-${Math.floor(1000 + Math.random() * 9000)}`;
+        else lotName = lotName.toUpperCase();
+
+        for (const file of files) {
+          const text = await file.text();
+          let json;
+          try {
+            json = JSON.parse(text);
+          } catch (err) {
+            console.error('Error parsing JSON from', file.name, err);
+            continue;
+          }
+
+          const fname = file.name.toLowerCase();
+
+          if (Array.isArray(json)) {
+            // Check if dataset contains dual-model fields
+            const hasDual = json.some(d => (d.fail_prob_A !== undefined || d.probA !== undefined) && (d.fail_prob_B !== undefined || d.probB !== undefined));
+            if (hasDual) {
+              loadedA = json;
+              loadedB = json;
+              break;
+            }
+
+            const hasSignal = json.some(d => d.signal_2000 && d.signal_2000.length > 0);
+            const isModelB = fname.includes('model b') || fname.includes('model_b') || fname.includes('cnn') || hasSignal;
+            const isModelA = fname.includes('model a') || fname.includes('model_a') || fname.includes('xgboost');
+
+            if (isModelB) {
+              loadedB = json;
+            } else if (isModelA) {
+              loadedA = json;
+            } else {
+              if (!loadedA) loadedA = json;
+              else if (!loadedB) loadedB = json;
+            }
+          } else if (json && typeof json === 'object') {
+            if (json.model_a && json.model_b) {
+              loadedA = json.model_a;
+              loadedB = json.model_b;
+              break;
+            } else if (json.data && Array.isArray(json.data)) {
+              if (!loadedA) loadedA = json.data;
+              else if (!loadedB) loadedB = json.data;
+            }
+          }
+        }
+
+        if (loadedA && !loadedB) loadedB = loadedA;
+        if (!loadedA && loadedB) loadedA = loadedB;
+
+        if (!loadedA || !loadedB || !loadedA.length) {
+          alert('Could not detect valid wafer dies in the selected file(s). Please select valid wafer predictions JSON.');
+          return;
+        }
+
+        // 1. Update State with new lot data & merge
+        AppState.modelAData = loadedA;
+        AppState.modelBData = loadedB;
+        mergeDatasets();
+
+        // 2. Completely clear existing 3D die meshes from the Three.js scene
+        clearDieMeshes();
+
+        // 3. Reset wafer state back to pre-scan (transparent, colorless frosted glass)
+        AppState.isScanned = false;
+        AppState.isScanning = false;
+        if (AppState.laserMesh) AppState.laserMesh.visible = false;
+
+        const sweepHud = document.getElementById('sweep-hud');
+        if (sweepHud) sweepHud.classList.add('hidden');
+
+        const scanBtn = document.getElementById('btn-perform-scan');
+        const scanBtnText = document.getElementById('scan-btn-text');
+        if (scanBtn) {
+          scanBtn.classList.remove('opacity-75', 'cursor-not-allowed');
+          scanBtn.classList.add('laser-active');
+        }
+        if (scanBtnText) scanBtnText.textContent = 'Perform Wafer Scan';
+
+        const statusPill = document.getElementById('scan-status-pill');
+        const statusText = document.getElementById('scan-status-text');
+        if (statusPill && statusText) {
+          statusPill.className = 'hidden lg:flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-mono font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-400/40';
+          statusText.textContent = 'PRE-SCAN (READY)';
+        }
+
+        // 4. Reset KPI metrics (Defects to "--", Yield to "-- %", Variance to "--")
+        resetKPICards();
+
+        // 5. Clear active chart / die selection
+        clearActiveDieSelection();
+
+        // 6. Re-instantiate and re-render 3D wafer grid using new lot's spatial coordinates
+        createDieMeshes();
+
+        // 7. Update header badge and HUD to reflect the new lot ID or wafer count
+        const hudDieCount = document.getElementById('hud-die-count');
+        if (hudDieCount) hudDieCount.textContent = `${AppState.mergedDies.length}`;
+
+        const hudLotBadge = document.getElementById('hud-lot-badge');
+        if (hudLotBadge) hudLotBadge.textContent = `LOT #${lotName}`;
+
+        const headerLotBadge = document.getElementById('header-lot-badge');
+        if (headerLotBadge) headerLotBadge.textContent = `300mm FAB • LOT #${lotName}`;
+
+        // 8. Re-populate flagged dies table, wafer anomaly chart & discrepancy chart
+        renderFlaggedDiesTable();
+        renderWaferAnomalyChart();
+        renderDiscrepancyChart();
+
+      } catch (err) {
+        console.error('Failed to parse uploaded lot:', err);
+        alert('Error loading lot JSON: ' + err.message);
+      }
+    }
+
+    // ==========================================
+    // 9. ANIMATION LOOP
+    // ==========================================
+    function animate() {
+      requestAnimationFrame(animate);
+
+      // Smooth hover elevation animation for wafer dies
+      if (AppState.mergedDies && AppState.mergedDies.length > 0) {
+        const hoveredId = AppState.hoveredDieId;
+        const selectedId = AppState.selectedDieId;
+
+        for (let i = 0; i < AppState.mergedDies.length; i++) {
+          const die = AppState.mergedDies[i];
+          if (die.mesh) {
+            const isHovered = die.die_id === hoveredId;
+            const isSelected = die.die_id === selectedId;
+            // Hovered: elevated to 0.65; Selected: raised to 0.42; Default resting: 0.25
+            const targetY = isHovered ? 0.65 : (isSelected ? 0.42 : 0.25);
+            
+            const curY = die.mesh.position.y;
+            if (Math.abs(curY - targetY) > 0.001) {
+              die.mesh.position.y = curY + (targetY - curY) * 0.28;
+            } else {
+              die.mesh.position.y = targetY;
+            }
+          }
+        }
+      }
+
+      if (AppState.controls) {
+        AppState.controls.update();
+      }
+
+      if (AppState.renderer && AppState.scene && AppState.camera) {
+        AppState.renderer.render(AppState.scene, AppState.camera);
+      }
+    }
+
+    // ==========================================
+    // 10. BOOTSTRAP INITIALIZATION
+    // ==========================================
+    window.addEventListener('DOMContentLoaded', () => {
+      // 1. Initialize Theme Engine (Default Light Mode)
+      initTheme();
+
+      // 2. Initialize Three.js Canvas
+      initThreeScene();
+
+      // 3. Load Datasets directly from model_a.json & model_b.json
+      loadDatasets();
+
+      // 4. Bind Header Controls
+      const newLotBtn = document.getElementById('btn-new-lot');
+      const lotFileInput = document.getElementById('lot-file-input');
+      if (newLotBtn && lotFileInput) {
+        newLotBtn.addEventListener('click', () => {
+          lotFileInput.value = '';
+          lotFileInput.click();
+        });
+        lotFileInput.addEventListener('change', handleLotFileUpload);
+      }
+
+      const modelSelect = document.getElementById('model-select');
+      modelSelect.addEventListener('change', (e) => {
+        AppState.selectedModel = e.target.value;
+        updateWaferDisplayForActiveModel();
+        if (AppState.selectedDieId) {
+          inspectDie(AppState.selectedDieId, false);
+        }
+      });
+
+      const scanBtn = document.getElementById('btn-perform-scan');
+      scanBtn.addEventListener('click', triggerWaferScan);
+
+      // 5. Initialize Accordion Bottom Drawer, Tabs & Graph Modes
+      initAccordion();
+      initBottomDrawerTabs();
+      initDieAnomalyGraphModes();
+    });
+  </script>
+</body>
+</html>

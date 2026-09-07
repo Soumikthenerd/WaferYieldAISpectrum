@@ -1,0 +1,8 @@
+{
+  "name": "Remix Wafer Yield AI Spectrum",
+  "description": "3D interactive semiconductor wafer yield prediction system comparing Model A (XGBoost Ensemble) and Model B (1D-CNN) with real-time laser scan sweep and sub-die signal analytics.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
