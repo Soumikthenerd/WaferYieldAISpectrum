@@ -6,8 +6,10 @@ import numpy as np
 app = FastAPI()
 
 # Load model artifact
-model = joblib.load("wafer_model.joblib")
+import os
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+model = joblib.load(os.path.join(BASE_DIR, "models", "model_a.pkl"))
 
 class WaferPayload(BaseModel):
     x: int
