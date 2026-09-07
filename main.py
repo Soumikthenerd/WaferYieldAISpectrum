@@ -1,9 +1,17 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import joblib
+from fastapi.middleware.cors import CORSMiddleware
 import numpy as np
 
 app = FastAPI()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Load model artifact
 import os
